@@ -1,11 +1,25 @@
 "use client";
-import { Authenticator } from "@aws-amplify/ui-react";
+import { Authenticator, useAuthenticator } from "@aws-amplify/ui-react";
 import Navbar from "../Navbar";
 import { Amplify } from "aws-amplify";
 import config from "@/amplify_outputs.json";
-import React from "react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 Amplify.configure(config, { ssr: true });
+
+const AuthHandler = ({ children }: { children: React.ReactNode }) => {
+  const { authStatus } = useAuthenticator((context) => [context.authStatus]);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authStatus === "unauthenticated") {
+      router.push("/onboard");
+    }
+  }, [authStatus, router]);
+
+  return <>{children}</>;
+};
 
 const AuthLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -13,7 +27,7 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex flex-col h-screen">
         <Navbar />
         <main className="flex-1 flex justify-center items-center">
-          {children}
+          <AuthHandler>{children}</AuthHandler>
         </main>
       </div>
     </Authenticator.Provider>
