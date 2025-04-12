@@ -1,36 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cosmos
 
-## Getting Started
+🚧 **Under Construction!** 🚧
 
-First, run the development server:
+Cosmos is a **server-based** application built with **Next.js** and **AWS Amplify**. It aims to replicate the core features of Discord, including user authentication, real-time messaging, live voice-chatting, file uploads and multi-channel support. Users can create and join **servers**, where they can communicate within specific channels. This project is my attempt in exploring serverless architecture and modern full-stack development with AWS.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **User Authentication**: Authentication powered by AWS Cognito.
+- **Real-time Messaging**: Instant communication using AWS AppSync.
+- **Server Channels**: Create and manage servers for different topics and conversation.
+- **User Profiles**: Customize user profiles with basic information and avatars.
+- **Serverless Backend**: Backend services powered by AWS, including authentication and database management.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technologies Used
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **[Next.js](https://nextjs.org/)**: A React framework for building the frontend.
+- **[AWS Amplify](https://aws.amazon.com/amplify/)**: A comprehensive library for building web applications.
+- **[AWS Cognito](https://aws.amazon.com/cognito/)**: User authentication and authorization.
+- **[AWS AppSync](https://aws.amazon.com/appsync/)**: Real-time messaging and data synchronization.
+- **[GraphQL](https://graphql.org/)**: Query language for data interaction.
+- **[Tailwind CSS](https://tailwindcss.com/)**: CSS framework for easy styling.
+- **[Daisy UI](https://https://daisyui.com/)**: Tailwind-based Component Library for modern design and flow.
