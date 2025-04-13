@@ -1,17 +1,89 @@
-import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { a, defineData, type ClientSchema } from '@aws-amplify/backend';
 
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any unauthenticated user can "create", "read", "update", 
-and "delete" any "Todo" records.
-=========================================================================*/
 const schema = a.schema({
-  Todo: a
+  User: a
     .model({
-      content: a.string(),
+      id: a.id(),
+      username: a.string(),
+      icon: a.string(), // S3 key for user-uploaded images in bucket
+      bio: a.string(),
+      servers: a.hasMany('ServerMember', 'userId'),
+      ownedServers: a.hasMany('Server', 'ownerId'),
+      messages: a.hasMany('Message', 'userId'),
+      media: a.hasMany('Media', 'userId'),
     })
-    .authorization((allow) => [allow.guest()]),
+    .authorization((allow) => [
+      allow.ownerDefinedIn('userID'),
+    ]),
+
+    Server: a
+    .model({
+      id: a.id().required(),
+      name: a.string().required(),
+      icon: a.string(), // S3 key for server icon
+      ownerId: a.id().required(),
+      owner: a.belongsTo('User', 'ownerId'),
+      members: a.hasMany('ServerMember', 'serverId'),
+      channels: a.hasMany('Channel', 'serverId'),
+    })
+    .authorization((allow) => [
+      allow.authenticated()
+    ]),
+
+  Channel: a
+    .model({
+      id: a.id().required(),
+      name: a.string().required(),
+      type: a.enum(['TEXT', 'VOICE']),
+      serverId: a.id().required(),
+      server: a.belongsTo('Server', 'serverId'),
+      messages: a.hasMany('Message', 'channelId'),
+      media: a.hasMany('Media', 'channelId'),
+    })
+    .authorization((allow) => [
+      allow.authenticated()
+    ]),
+
+  ServerMember: a
+    .model({
+      id: a.id().required(),
+      userId: a.id().required(),
+      user: a.belongsTo('User', 'userId'),
+      serverId: a.id().required(),
+      server: a.belongsTo('Server', 'serverId'),
+    })
+    .authorization((allow) => [
+      allow.owner()
+    ]),
+
+  Message: a
+    .model({
+      id: a.id().required(),
+      content: a.string().required(),
+      userId: a.id().required(),
+      user: a.belongsTo('User', 'userId'),
+      channelId: a.id().required(),
+      channel: a.belongsTo('Channel', 'channelId'),
+      createdAt: a.datetime(),
+    })
+    .authorization((allow) => [
+      allow.authenticated()
+    ]),
+
+    Media: a
+    .model({
+      id: a.id().required(),
+      content: a.string().required(), // S3 key for user-uploaded files/videos in bucket
+      userId: a.id().required(),
+      user: a.belongsTo('User', 'userId'),
+      channelId: a.id().required(),
+      channel: a.belongsTo('Channel', 'channelId'),
+      createdAt: a.datetime(),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+      allow.authenticated().to(['read']),
+    ]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -19,35 +91,7 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'iam',
+    defaultAuthorizationMode: 'userPool',
+    apiKeyAuthorizationMode: { expiresInDays: 30 },
   },
 });
-
-/*== STEP 2 ===============================================================
-Go to your frontend source code. From your client-side code, generate a
-Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
-WORK IN THE FRONTEND CODE FILE.)
-
-Using JavaScript or Next.js React Server Components, Middleware, Server 
-Actions or Pages Router? Review how to generate Data clients for those use
-cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
-=========================================================================*/
-
-/*
-"use client"
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-
-const client = generateClient<Schema>() // use this Data client for CRUDL requests
-*/
-
-/*== STEP 3 ===============================================================
-Fetch records from the database and use them in your frontend component.
-(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
-=========================================================================*/
-
-/* For example, in a React component, you can use this snippet in your
-  function's RETURN statement */
-// const { data: todos } = await client.models.Todo.list()
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
