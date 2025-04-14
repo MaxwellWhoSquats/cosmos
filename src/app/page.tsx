@@ -6,21 +6,18 @@ const Home = () => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
 
   if (loading) {
-    return <span className="loading loading-ring w-28"></span>;
+    return (
+      <div className="flex justify-center items-center h-full w-full">
+        <span className="loading loading-ring w-28"></span>
+      </div>
+    );
+  } else {
+    return (
+      <div className="flex h-auto w-full border m-4 p-4 rounded">
+        <h1 className="text-2xl font-extrabold">Welcome, {user?.username}</h1>
+      </div>
+    );
   }
-
-  return (
-    <div>
-      <h1>Home</h1>
-      {user ? (
-        <div>
-          <p>Welcome, {user.username}!</p>
-        </div>
-      ) : (
-        <p>Not authenticated!</p>
-      )}
-    </div>
-  );
 };
 
 export default Home;

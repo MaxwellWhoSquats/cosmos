@@ -13,7 +13,7 @@ const schema = a.schema({
       media: a.hasMany('Media', 'userId'),
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn('userID'),
+      allow.ownerDefinedIn('id'),
     ]),
 
     Server: a

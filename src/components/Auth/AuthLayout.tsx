@@ -3,7 +3,7 @@ import { Authenticator } from "@aws-amplify/ui-react";
 import Navbar from "../Navbar";
 import { Amplify } from "aws-amplify";
 import config from "@/amplify_outputs.json";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
 
@@ -12,6 +12,7 @@ Amplify.configure(config, { ssr: true });
 const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
   const { authStatus } = useAmplifyAuthenticatedUser();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -21,10 +22,8 @@ const AuthWrapper = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="flex flex-col h-screen">
-      <Navbar />
-      <main className="flex-1 flex justify-center items-center">
-        {children}
-      </main>
+      {pathname !== "/onboard" && <Navbar />}
+      <main className="flex-1 flex">{children}</main>
     </div>
   );
 };

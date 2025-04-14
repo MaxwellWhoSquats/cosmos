@@ -57,7 +57,11 @@ const Onboard = () => {
     }
   }
 
-  return <Authenticator />;
+  return (
+    <div className="flex justify-center items-center h-full w-full">
+      <Authenticator />
+    </div>
+  );
 };
 
 export default Onboard;

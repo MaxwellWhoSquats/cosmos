@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { useAuthenticator } from "@aws-amplify/ui-react";
 import { client } from "../utils/amplifyClient";
 
+
 interface User {
-  userID: string;
+  id: string;
   username: string;
+  icon: string;
 }
 
 export const useAmplifyAuthenticatedUser = () => {
