@@ -4,10 +4,10 @@ import React, { useEffect, useState } from "react";
 import { useAmplifyAuthenticatedUser } from "../hooks/useAmplifyAuthenticatedUser";
 import { signOut } from "aws-amplify/auth";
 import { client } from "../utils/amplifyClient";
-import { StorageImage } from "@aws-amplify/ui-react-storage";
+import { downloadData } from "aws-amplify/storage";
 
 const Navbar = () => {
-  const [iconPath, setIconPath] = useState<string>("");
+  const [iconS3Url, setIconS3Url] = useState<string>("");
   const { dbUser: user } = useAmplifyAuthenticatedUser();
 
   const defaultRoutes = [
@@ -17,7 +17,7 @@ const Navbar = () => {
 
   useEffect(() => {
     if (user?.id) {
-      getProfileIcon();
+      GetProfileIconS3Link();
     }
   }, [user]);
 
@@ -25,21 +25,32 @@ const Navbar = () => {
     await signOut();
   };
 
-  const getProfileIcon = async () => {
+  // FIND A WAY TO CACHE ICON, so that every refresh isnt another API call to S3
+  const GetProfileIconS3Link = async () => {
     try {
-      const { data, errors } = await client.models.User.get({
-        id: user?.id,
-      });
-      if (errors) {
-        console.error(errors);
+      const { data, errors: errorGetProfileIconS3Link } =
+        await client.models.User.get({
+          id: user?.id,
+        });
+      if (errorGetProfileIconS3Link) {
+        console.error(errorGetProfileIconS3Link);
         return;
       }
       if (data?.icon) {
-        const path = data.icon;
-        setIconPath(path);
+        await downloadProfileIcon(data.icon);
       }
     } catch (error) {
       console.error("Unknown Error: ", error);
+    }
+  };
+
+  const downloadProfileIcon = async (path: string) => {
+    try {
+      const { body } = await downloadData({ path }).result;
+      const url = URL.createObjectURL(await body.blob());
+      setIconS3Url(url);
+    } catch (error) {
+      console.error("Failed to download profile icon! " + error);
     }
   };
 
@@ -63,16 +74,16 @@ const Navbar = () => {
       </div>
       <div id="right-side" className="flex space-x-2 items-center">
         <div className="dropdown dropdown-end">
-          <div
-            tabIndex={0}
-            role="button"
-            className="btn btn-sm bg-info-content m-1"
-          >
-            {user?.username}
-          </div>
+          <button tabIndex={0} role="button">
+            <div className="avatar">
+              <div className="w-8 flex items-center justify-center rounded-full bg-info-content cursor-pointer hover:opacity-70">
+                {iconS3Url && <img src={iconS3Url} alt="ProfileIcon" />}
+              </div>
+            </div>
+          </button>
           <ul
             tabIndex={0}
-            className="dropdown-content menu bg-info-content rounded-box z-1 w-52 p-2 shadow-sm"
+            className="dropdown-content menu bg-info-content rounded-box z-1 w-52 mt-2 p-2 shadow-sm"
           >
             <li>
               <Link href={"/profile"}>
@@ -85,15 +96,6 @@ const Navbar = () => {
               </button>
             </li>
           </ul>
-        </div>
-        <div className="avatar">
-          <div className="w-8 rounded-full">
-            {iconPath ? (
-              <StorageImage alt="icon" path={iconPath} />
-            ) : (
-              <img src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,9 @@ import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticated
 const Profile = () => {
   const [icons, setIcons] = useState<string[]>([]);
   const [selectedIcon, setSelectedIcon] = useState<string>("");
-  const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
+  const [loading, setLoading] = useState<boolean>(false);
+  const [displayMessage, setDisplayMessage] = useState<boolean>(false);
+  const { dbUser: user } = useAmplifyAuthenticatedUser();
 
   const getAllIcons = async () => {
     const s3Icons: string[] = [];
@@ -32,6 +34,7 @@ const Profile = () => {
 
   const updateUserIcon = async () => {
     try {
+      setLoading(true);
       const { data, errors: errorUpdateUserIcon } =
         await client.models.User.update({
           id: user?.id,
@@ -43,14 +46,20 @@ const Profile = () => {
       }
       if (data) {
         console.log("Successfully updated profile icon for " + user?.username);
+        setTimeout(() => {
+          setLoading(false);
+          setDisplayMessage(true);
+        }, 2000);
       }
     } catch (error) {
       console.error("Unknown Error: " + error);
+      setLoading(false);
+      setDisplayMessage(false);
     }
   };
 
   return (
-    <div className="my-5 mx-auto">
+    <div className="my-5 mx-auto flex flex-col">
       <h1 className="text-3xl font-extrabold mb-8 text-center">Profile</h1>
 
       <section className="bg-white shadow-lg rounded-lg p-6 mb-8">
@@ -90,9 +99,26 @@ const Profile = () => {
         </select>
       </div>
       {selectedIcon && (
-        <button className="btn btn-md btn-primary" onClick={updateUserIcon}>
-          Update Profile Image
+        <button
+          className="btn btn-md btn-primary"
+          onClick={updateUserIcon}
+          disabled={loading}
+        >
+          {!loading ? (
+            "Update Profile Image"
+          ) : (
+            <span className="loading loading-spinner loading-xs"></span>
+          )}
         </button>
+      )}
+      {displayMessage && (
+        <div
+          id="messageUpdateIconSuccessful"
+          role="alert"
+          className="alert alert-success alert-soft mt-5"
+        >
+          <span>Icon updated successfully! Please refresh to view.</span>
+        </div>
       )}
     </div>
   );
