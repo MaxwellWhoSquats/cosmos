@@ -12,7 +12,7 @@ const Navbar = () => {
 
   const defaultRoutes = [
     { href: "/", label: "Home" },
-    { href: "/create-server", label: "Create Server" },
+    { href: "/servers", label: "Servers" },
   ];
 
   useEffect(() => {
