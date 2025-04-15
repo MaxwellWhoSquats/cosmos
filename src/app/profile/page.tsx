@@ -1,17 +1,36 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FileUploader } from "@aws-amplify/ui-react-storage";
 import "@aws-amplify/ui-react/styles.css";
 import { list } from "aws-amplify/storage";
 import { client } from "@/src/utils/amplifyClient";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
+import gsap from "gsap";
 
 const Profile = () => {
+  const { dbUser: user } = useAmplifyAuthenticatedUser();
   const [icons, setIcons] = useState<string[]>([]);
   const [selectedIcon, setSelectedIcon] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [displayMessage, setDisplayMessage] = useState<boolean>(false);
-  const { dbUser: user } = useAmplifyAuthenticatedUser();
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  // Animate message in
+  useEffect(() => {
+    if (displayMessage && messageRef.current && backdropRef.current) {
+      gsap.fromTo(
+        messageRef.current,
+        { scale: 0.95, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" }
+      );
+      gsap.fromTo(
+        backdropRef.current,
+        { opacity: 0 },
+        { opacity: 0.5, duration: 0.3 }
+      );
+    }
+  }, [displayMessage]);
 
   const getAllIcons = async () => {
     const s3Icons: string[] = [];
@@ -60,9 +79,9 @@ const Profile = () => {
 
   return (
     <div className="my-5 mx-auto flex flex-col">
-      <h1 className="text-3xl font-extrabold mb-8 text-center">Profile</h1>
+      <h1 className="text-3xl font-extrabold mb-6 text-center">Profile</h1>
 
-      <section className="bg-white shadow-lg rounded-lg p-6 mb-8">
+      <section className="bg-white shadow-lg rounded-lg p-6 mb-6">
         <h2 className="text-xl text-center font-semibold text-gray-800 mb-4">
           Upload a New Profile Icon
         </h2>
@@ -75,7 +94,7 @@ const Profile = () => {
         />
       </section>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-6">
         <button onClick={getAllIcons} className="btn btn-sm btn-info">
           Load All Icons
         </button>
@@ -112,13 +131,17 @@ const Profile = () => {
         </button>
       )}
       {displayMessage && (
-        <div
-          id="messageUpdateIconSuccessful"
-          role="alert"
-          className="alert alert-success alert-soft mt-5"
-        >
-          <span>Icon updated successfully! Please refresh to view.</span>
-        </div>
+        <>
+          <div ref={backdropRef} className="fixed inset-0 bg-black z-40"></div>
+          <div
+            ref={messageRef}
+            id="messageUpdateIconSuccessful"
+            role="alert"
+            className="fixed z-50 alert alert-success top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          >
+            <span>Icon updated successfully! Please refresh to view.</span>
+          </div>
+        </>
       )}
     </div>
   );

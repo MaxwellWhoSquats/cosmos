@@ -5,9 +5,11 @@ import { useAmplifyAuthenticatedUser } from "../hooks/useAmplifyAuthenticatedUse
 import { signOut } from "aws-amplify/auth";
 import { client } from "../utils/amplifyClient";
 import { downloadData } from "aws-amplify/storage";
+import EmptyProfileIcon from "./Icons/EmptyProfileIcon";
 
 const Navbar = () => {
   const [iconS3Url, setIconS3Url] = useState<string>("");
+  const [displaySkeleton, setDisplaySkeleton] = useState<boolean>(true);
   const { dbUser: user } = useAmplifyAuthenticatedUser();
 
   const defaultRoutes = [
@@ -38,6 +40,7 @@ const Navbar = () => {
       }
       if (data?.icon) {
         await downloadProfileIcon(data.icon);
+        setDisplaySkeleton(false);
       }
     } catch (error) {
       console.error("Unknown Error: ", error);
@@ -76,9 +79,17 @@ const Navbar = () => {
         <div className="dropdown dropdown-end">
           <button tabIndex={0} role="button">
             <div className="avatar">
-              <div className="w-8 flex items-center justify-center rounded-full bg-info-content cursor-pointer hover:opacity-70">
-                {iconS3Url && <img src={iconS3Url} alt="ProfileIcon" />}
-              </div>
+              {iconS3Url ? (
+                <div className="w-9 rounded-full cursor-pointer hover:opacity-70">
+                  <img src={iconS3Url} alt="ProfileIcon" />
+                </div>
+              ) : displaySkeleton ? (
+                <div className="skeleton w-9 shrink-0 rounded-full"></div>
+              ) : (
+                <div className="flex p-2 bg-info-content rounded-full items-center justify-center cursor-pointer hover:opacity-70">
+                  <EmptyProfileIcon />
+                </div>
+              )}
             </div>
           </button>
           <ul
