@@ -95,7 +95,7 @@ const Profile = () => {
       </section>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-6">
-        <button onClick={getAllIcons} className="btn btn-sm btn-info">
+        <button onClick={getAllIcons} className="btn btn-sm btn-accent">
           Load All Icons
         </button>
         <select

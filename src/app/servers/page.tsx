@@ -137,7 +137,7 @@ export default function ServersPage() {
         <section>
           <button
             onClick={() => setShowPopUp(true)}
-            className="btn btn-secondary btn-sm"
+            className="btn btn-accent btn-sm"
           >
             Create Server
           </button>
