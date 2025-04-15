@@ -122,9 +122,11 @@ const VideoCall = ({ appId, channel, token, onDisconnect }: VideoCallProps) => {
 const VideoCallingClient = () => {
   const [client, setClient] = useState<any>(null);
   const [calling, setCalling] = useState(false);
-  const appId = process.env.NEXT_PUBLIC_APP_ID || "";
+  // const appId = process.env.NEXT_PUBLIC_APP_ID || "";
+  const [appId, setAppId] = useState<string>("");
+  const [token, setToken] = useState<string>("");
   const channel = "Test";
-  const token = process.env.NEXT_PUBLIC_TEMP_TOKEN || "";
+  // const token = process.env.NEXT_PUBLIC_TEMP_TOKEN || "";
 
   useEffect(() => {
     if (calling && !client) {
@@ -144,6 +146,25 @@ const VideoCallingClient = () => {
 
   return (
     <div className="h-full">
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Enter App ID"
+          value={appId}
+          onChange={(e) => setAppId(e.target.value)}
+          className="p-2 border border-gray-300 rounded"
+        />
+      </div>
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Enter Token"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          className="p-2 border border-gray-300 rounded"
+        />
+      </div>
+
       {!calling ? (
         <button
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
