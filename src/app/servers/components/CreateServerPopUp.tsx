@@ -1,6 +1,8 @@
 "use client";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
 import { client } from "@/src/utils/amplifyClient";
+import { FileUploader } from "@aws-amplify/ui-react-storage";
+import "@aws-amplify/ui-react/styles.css";
 import React, { useState } from "react";
 
 interface CreateServerProps {
@@ -14,9 +16,15 @@ const CreateServerPopUp = ({
 }: CreateServerProps) => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [serverName, setServerName] = useState<string>("");
+  const [iconS3Path, setIconS3Path] = useState<string>();
 
   const handleClosePopUp = () => {
     closePopUp();
+  };
+
+  const handleIconUploadSuccess = ({ key }: { key?: string }) => {
+    const path = key;
+    setIconS3Path(path);
   };
 
   const createServer = async (e: React.FormEvent) => {
@@ -25,8 +33,8 @@ const CreateServerPopUp = ({
       console.error("No user authenticated");
       return;
     }
-    if (!serverName.trim()) {
-      console.error("Server name is required");
+    if (!serverName.trim() || !iconS3Path) {
+      console.error("Server name and Icon are required");
       return;
     }
 
@@ -36,6 +44,7 @@ const CreateServerPopUp = ({
         await client.models.Server.create({
           name: serverName.trim(),
           ownerId: user.id,
+          icon: iconS3Path,
         });
 
       if (errorCreateServerError) {
@@ -45,7 +54,7 @@ const CreateServerPopUp = ({
 
       if (theServer) {
         // Automatically add the creator as a member
-        const { data: member, errors: errorAddUserToServer } =
+        const { data, errors: errorAddUserToServer } =
           await client.models.ServerMember.create({
             userId: user.id,
             serverId: theServer.id,
@@ -63,8 +72,18 @@ const CreateServerPopUp = ({
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-4">
       <h2 className="text-xl font-bold mb-4">Create a Server</h2>
+      <section className="mb-4">
+        <FileUploader
+          acceptedFileTypes={[".jpeg", ".jpg", ".png"]}
+          path="serverIcons/"
+          autoUpload={false}
+          maxFileCount={1}
+          isResumable
+          onUploadSuccess={handleIconUploadSuccess}
+        />
+      </section>
       <form onSubmit={createServer}>
         <input
           type="text"

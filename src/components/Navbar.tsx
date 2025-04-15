@@ -9,7 +9,6 @@ import EmptyProfileIcon from "./Icons/EmptyProfileIcon";
 
 const Navbar = () => {
   const [iconS3Url, setIconS3Url] = useState<string>("");
-  const [displaySkeleton, setDisplaySkeleton] = useState<boolean>(true);
   const { dbUser: user } = useAmplifyAuthenticatedUser();
 
   const defaultRoutes = [
@@ -40,7 +39,6 @@ const Navbar = () => {
       }
       if (data?.icon) {
         await downloadProfileIcon(data.icon);
-        setDisplaySkeleton(false);
       }
     } catch (error) {
       console.error("Unknown Error: ", error);
@@ -83,8 +81,6 @@ const Navbar = () => {
                 <div className="w-9 rounded-full cursor-pointer hover:opacity-70">
                   <img src={iconS3Url} alt="ProfileIcon" />
                 </div>
-              ) : displaySkeleton ? (
-                <div className="skeleton w-9 shrink-0 rounded-full"></div>
               ) : (
                 <div className="flex p-2 bg-info-content rounded-full items-center justify-center cursor-pointer hover:opacity-70">
                   <EmptyProfileIcon />

@@ -11,13 +11,18 @@ const Home = () => {
         <span className="loading loading-ring w-28"></span>
       </div>
     );
-  } else {
-    return (
-      <div className="flex h-auto w-full border m-4 p-4 rounded">
-        <h1 className="text-2xl font-extrabold">Welcome, {user?.username}</h1>
-      </div>
-    );
   }
+
+  return (
+    <div className="flex h-auto w-full border m-4 p-4 rounded">
+      <header className="flex space-x-4">
+        <h1 className="font-extrabold text-4xl">Welcome,</h1>
+        <div className="font-extrabold text-4xl text-transparent bg-clip-text animate-gradient bg-gradient-to-r from-cyan-400 via-purple-600 to-rose-700">
+          @{user?.username}
+        </div>
+      </header>
+    </div>
+  );
 };
 
 export default Home;
