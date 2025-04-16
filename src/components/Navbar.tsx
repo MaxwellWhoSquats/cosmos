@@ -5,7 +5,6 @@ import { useAmplifyAuthenticatedUser } from "../hooks/useAmplifyAuthenticatedUse
 import { signOut } from "aws-amplify/auth";
 import { client } from "../utils/amplifyClient";
 import { downloadData } from "aws-amplify/storage";
-import EmptyProfileIcon from "./Icons/EmptyProfileIcon";
 
 const Navbar = () => {
   const [iconS3Url, setIconS3Url] = useState<string>("");
@@ -56,7 +55,7 @@ const Navbar = () => {
   };
 
   return (
-    <div className="navbar h-8 bg-base-300 px-4 justify-between">
+    <div className="navbar h-8 bg-midnight px-4 justify-between">
       <div id="left-side" className="flex items-center space-x-4">
         <Link href={"/"} className="text-xl font-bold">
           COSMOS
@@ -82,9 +81,7 @@ const Navbar = () => {
                   <img src={iconS3Url} alt="ProfileIcon" />
                 </div>
               ) : (
-                <div className="flex p-2 bg-info-content rounded-full items-center justify-center cursor-pointer hover:opacity-70">
-                  <EmptyProfileIcon />
-                </div>
+                <div className="skeleton w-9 shrink-0 rounded-full"></div>
               )}
             </div>
           </button>

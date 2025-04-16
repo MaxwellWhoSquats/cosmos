@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useAuthenticator } from "@aws-amplify/ui-react";
 import { client } from "../utils/amplifyClient";
 
-
 interface User {
   id: string;
   username: string;
@@ -27,6 +26,12 @@ export const useAmplifyAuthenticatedUser = () => {
     }
   }, [authStatus, user]);
 
+  useEffect(() => {
+    if (dbUser !== undefined) {
+      setLoading(false);
+    }
+  }, [dbUser]);
+
   const fetchUser = async () => {
     try {
       setLoading(true);
@@ -38,18 +43,17 @@ export const useAmplifyAuthenticatedUser = () => {
 
       if (errors) {
         console.error(errors);
+        setDbUser(null);
         return;
       }
 
       setDbUser(data as User || null);
-
     } catch (error) {
       console.error("Unknown Error: ", error);
-    } finally {
-      setLoading(false);
+      setDbUser(null);
     }
   };
 
-  // "user is Cognito, "dbUser" is from DynamoDB
+  // "user" is Cognito, "dbUser" is from DynamoDB
   return { authStatus, user, dbUser, loading };
 };
