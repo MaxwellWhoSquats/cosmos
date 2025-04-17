@@ -40,8 +40,8 @@ const Home = () => {
     if (isReady && contentRef.current) {
       gsap.fromTo(
         contentRef.current,
-        { scale: 0.98, opacity: 0, y: 10 },
-        { scale: 1, opacity: 1, y: 0, duration: 1.2, ease: "power2.out" }
+        { scale: 0.97, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 1.2, ease: "power2.out" }
       );
       gsap.fromTo(
         dashboardRef.current,
@@ -49,8 +49,8 @@ const Home = () => {
         {
           scale: 1,
           opacity: 1,
-          delay: 1.2,
-          duration: 0.6,
+          delay: 1.1,
+          duration: 0.5,
           ease: "power2.out",
         }
       );
@@ -165,7 +165,7 @@ const Home = () => {
       <div
         ref={contentRef}
         style={{ opacity: 0 }}
-        className="min-w-full min-h-full bg-base-300 flex flex-col rounded-md p-6"
+        className="h-full w-full max-h-[100vh] max-w-[100vw] bg-base-300 flex flex-col rounded-md p-6"
       >
         <h2 className="text-4xl font-medium bg-clip-text text-transparent bg-gradient-to-b from-slate-600 via-slate-400 to-slate-300">
           <AnimateWord word={`@${username}`} />
@@ -211,7 +211,7 @@ const Home = () => {
           <CornerIcon className="absolute h-6 w-6 -top-3 -right-3 dark:text-white text-black" />
           <CornerIcon className="absolute h-6 w-6 -bottom-3 -right-3 dark:text-white text-black" />
         </main>
-        <ShootingStars minDelay={2000} maxDelay={4000} />
+        <ShootingStars minDelay={2000} maxDelay={3000} />
         <StarsBackground starDensity={0.0004} />
       </div>
       {showAddFriendPopUp && (
