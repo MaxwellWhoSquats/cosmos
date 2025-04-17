@@ -120,18 +120,20 @@ export default function ServersPage() {
   return (
     <div className="h-auto w-full flex flex-col p-6 rounded relative">
       <header className="flex mb-4 items-center justify-between">
-        <h1 className="text-4xl font-semibold mr-4">Servers</h1>
-        <ul className="flex flex-row items-center space-x-2">
-          {serverIcons.map((serverIcon, index) => (
-            <li key={index}>
-              <div className="avatar avatar-online">
-                <div className="w-10 rounded-xl cursor-pointer hover:opacity-70">
-                  <img src={serverIcon} alt="ProfileIcon" />
+        <div id="left-side" className="flex">
+          <h1 className="text-4xl font-semibold mr-4">Servers</h1>
+          <ul className="flex flex-row items-center space-x-2">
+            {serverIcons.map((serverIcon, index) => (
+              <li key={index}>
+                <div className="avatar avatar-online">
+                  <div className="w-10 rounded-xl cursor-pointer hover:opacity-70">
+                    <img src={serverIcon} alt="ProfileIcon" />
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
         <section>
           <button
             onClick={() => setShowPopUp(true)}
