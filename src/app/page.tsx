@@ -14,6 +14,7 @@ import {
   PopUpFriendRequest,
 } from "../components/PopUps";
 import { downloadData } from "aws-amplify/storage";
+import DM from "../components/DM";
 
 const Home = () => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
@@ -21,6 +22,7 @@ const Home = () => {
   const [username, setUsername] = useState<string>("");
   const [friendRequestSenderUserData, setFriendRequestSenderUserData] =
     useState<FriendRequestRelevantData[]>([]);
+  const [friends, setFriends] = useState<FriendRequestRelevantData[]>([]);
   const [showAddFriendPopUp, setShowAddFriendPopUp] = useState<boolean>(false);
   const [showFriendRequestsPopUp, setShowFriendRequestsPopUp] =
     useState<boolean>(false);
@@ -153,6 +155,7 @@ const Home = () => {
       }
 
       const friendRequestData: FriendRequestRelevantData[] = [];
+      const acceptedFriends: FriendRequestRelevantData[] = [];
 
       // Process each friend request
       for (let request of friendRequests) {
@@ -177,13 +180,19 @@ const Home = () => {
                 "Error getting user profile:" +
                   errorGetFriendRequestSenderUserData
               );
-              friendRequestData.push({
+              // Add to appropriate array even if profile fetch fails
+              const friendData = {
                 requestId,
                 senderId,
                 senderUsername,
                 iconS3Url: null,
                 status,
-              });
+              };
+              if (status === "ACCEPTED") {
+                acceptedFriends.push(friendData);
+              } else {
+                friendRequestData.push(friendData);
+              }
               continue;
             }
 
@@ -199,20 +208,29 @@ const Home = () => {
               }
             }
 
-            friendRequestData.push({
+            const friendData = {
               requestId,
               senderId,
               senderUsername,
               iconS3Url,
               status,
-            });
+            };
+            if (status === "ACCEPTED") {
+              acceptedFriends.push(friendData);
+            } else {
+              friendRequestData.push(friendData);
+            }
           } catch (error) {
             console.error("Unknown Error: " + error);
           }
         }
       }
+
       if (friendRequestData.length > 0) {
         setFriendRequestSenderUserData(friendRequestData);
+      }
+      if (acceptedFriends.length > 0) {
+        setFriends(acceptedFriends);
       }
     } catch (error) {
       console.error("Unknown Error:", error);
@@ -245,32 +263,69 @@ const Home = () => {
               className="absolute inset-0 bg-black [mask-image:radial-gradient(ellipse_at_center,transparent_50%,black)]"
             />
           </div>
-          <aside className="flex-[1] z-50 m-4 rounded space-x-2 ">
-            <button
-              className="btn btn-sm btn-soft btn-accent"
-              onClick={() => setShowAddFriendPopUp(true)}
+          <aside className="flex-[1] z-50 m-4 rounded space-x-2 flex flex-col">
+            <section id="buttons" className="flex space-x-2">
+              <button
+                className="btn btn-sm btn-soft btn-accent"
+                onClick={() => setShowAddFriendPopUp(true)}
+              >
+                Add Friend
+              </button>
+              <button
+                className="relative btn btn-sm btn-soft btn-primary"
+                onClick={() => setShowFriendRequestsPopUp(true)}
+              >
+                <p>Friend Requests</p>
+                {friendRequestSenderUserData.filter(
+                  (request) => request.status === "PENDING"
+                ).length > 0 && (
+                  <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                    {
+                      friendRequestSenderUserData.filter(
+                        (request) => request.status === "PENDING"
+                      ).length
+                    }
+                  </span>
+                )}
+              </button>
+            </section>
+            <section
+              id="friendsList"
+              className="mt-4 p-4 bg-base-300/80 rounded-md flex-1 overflow-y-auto"
             >
-              Add Friend
-            </button>
-            <button
-              className="relative btn btn-sm btn-soft btn-primary"
-              onClick={() => setShowFriendRequestsPopUp(true)}
-            >
-              <p>Friend Requests</p>
-              {friendRequestSenderUserData.filter(
-                (request) => request.status === "PENDING"
-              ).length > 0 && (
-                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                  {
-                    friendRequestSenderUserData.filter(
-                      (request) => request.status === "PENDING"
-                    ).length
-                  }
-                </span>
-              )}
-            </button>
+              <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                Friends List
+              </h3>
+              <div className="space-y-2">
+                {friends.length > 0 ? (
+                  friends.map((friend) => (
+                    <div
+                      key={friend.senderId}
+                      className="flex items-center space-x-3 p-2 rounded-md hover:bg-base-100 hover:scale-105 transition duration-100 cursor-pointer"
+                    >
+                      {friend.iconS3Url ? (
+                        <img
+                          src={friend.iconS3Url}
+                          alt={`${friend.senderUsername}'s avatar`}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-500" />
+                      )}
+                      <span className="text-sm font-medium text-gray-200">
+                        {friend.senderUsername}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">No friends yet.</p>
+                )}
+              </div>
+            </section>
           </aside>
-          <section className="flex-[3] z-50 m-4 rounded"></section>
+          <section className="flex-[3] z-50 m-4 rounded bg-base-300/80">
+            <DM />
+          </section>
           <CornerIcon className="absolute h-6 w-6 -top-3 -left-3 dark:text-white text-black" />
           <CornerIcon className="absolute h-6 w-6 -bottom-3 -left-3 dark:text-white text-black" />
           <CornerIcon className="absolute h-6 w-6 -top-3 -right-3 dark:text-white text-black" />
