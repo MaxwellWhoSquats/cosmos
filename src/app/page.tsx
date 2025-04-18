@@ -8,7 +8,11 @@ import gsap from "gsap";
 import { AnimateWord } from "../components/ui/AnimateWord";
 import { CornerIcon } from "../components/Icons/CornerIcon";
 import { cn } from "@/lib/utils";
-import { PopUpAddFriend, PopUpFriendRequest } from "../components/PopUps";
+import {
+  FriendRequestRelevantData,
+  PopUpAddFriend,
+  PopUpFriendRequest,
+} from "../components/PopUps";
 import { downloadData } from "aws-amplify/storage";
 
 const Home = () => {
@@ -16,15 +20,7 @@ const Home = () => {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [username, setUsername] = useState<string>("");
   const [friendRequestSenderUserData, setFriendRequestSenderUserData] =
-    useState<
-      [
-        string | null, // friend request Id
-        string | null, // userId of sender
-        string | null, // username of sender
-        string | null, // s3 icon url of sender
-        string | null, // status
-      ][]
-    >([]);
+    useState<FriendRequestRelevantData[]>([]);
   const [showAddFriendPopUp, setShowAddFriendPopUp] = useState<boolean>(false);
   const [showFriendRequestsPopUp, setShowFriendRequestsPopUp] =
     useState<boolean>(false);
@@ -156,20 +152,14 @@ const Home = () => {
         return;
       }
 
-      const friendRequestData: [
-        string | null, // friend request Id
-        string | null, // userId of sender
-        string | null, // username of sender
-        string | null, // s3 icon url of sender
-        string | null, // status
-      ][] = [];
+      const friendRequestData: FriendRequestRelevantData[] = [];
 
       // Process each friend request
       for (let request of friendRequests) {
-        let requestId = request.id; // ID of the Friendship record
-        let senderId = request.userId; // userId is the User model id of the sender of the friend request
+        let requestId = request.id;
+        let senderId = request.userId;
         let senderUsername = request.senderUsername;
-        let senderIcon = null;
+        let iconS3Url = null;
         let status = request.status;
 
         if (senderUsername && senderId) {
@@ -187,13 +177,13 @@ const Home = () => {
                 "Error getting user profile:" +
                   errorGetFriendRequestSenderUserData
               );
-              friendRequestData.push([
+              friendRequestData.push({
+                requestId,
                 senderId,
                 senderUsername,
-                null,
-                requestId,
+                iconS3Url: null,
                 status,
-              ]);
+              });
               continue;
             }
 
@@ -203,19 +193,19 @@ const Home = () => {
                 const { body } = await downloadData({
                   path: friendRequestSenderUserData.icon,
                 }).result;
-                senderIcon = URL.createObjectURL(await body.blob());
+                iconS3Url = URL.createObjectURL(await body.blob());
               } catch (error) {
                 console.error("Failed to download profile icon:", error);
               }
             }
 
-            friendRequestData.push([
+            friendRequestData.push({
               requestId,
               senderId,
               senderUsername,
-              senderIcon,
+              iconS3Url,
               status,
-            ]);
+            });
           } catch (error) {
             console.error("Unknown Error: " + error);
           }
@@ -268,12 +258,12 @@ const Home = () => {
             >
               <p>Friend Requests</p>
               {friendRequestSenderUserData.filter(
-                ([, , , , status]) => status === "PENDING"
+                (request) => request.status === "PENDING"
               ).length > 0 && (
                 <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
                   {
                     friendRequestSenderUserData.filter(
-                      ([, , , , status]) => status === "PENDING"
+                      (request) => request.status === "PENDING"
                     ).length
                   }
                 </span>

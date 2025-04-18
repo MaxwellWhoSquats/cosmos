@@ -3,19 +3,21 @@ import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticated
 import { client } from "@/src/utils/amplifyClient";
 import React, { useState } from "react";
 
+export interface FriendRequestRelevantData {
+  requestId: string | null; // friend request Id
+  senderId: string | null; // userId of sender
+  senderUsername: string | null; // username of sender
+  iconS3Url: string | null; // s3 icon url of sender
+  status: string | null; // status
+}
+
 interface PopUpAddFriendProps {
   closePopUp: () => void;
 }
 
 interface PopUpFriendRequestProps {
   closePopUp: () => void;
-  friendRequestSenderUserData?: [
-    string | null, // friend request Id
-    string | null, // userId of sender
-    string | null, // username of sender
-    string | null, // s3 icon url of sender
-    string | null, // status
-  ][];
+  friendRequestSenderUserData?: FriendRequestRelevantData[];
 }
 
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
@@ -131,10 +133,11 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
 
 export const PopUpFriendRequest = ({
   closePopUp,
-  friendRequestSenderUserData: friendRequestSenderData,
+  friendRequestSenderUserData,
 }: PopUpFriendRequestProps) => {
+  const { dbUser: user } = useAmplifyAuthenticatedUser();
   const [friendRequestSenderDataState, setFriendRequestSenderDataState] =
-    useState(friendRequestSenderData || []);
+    useState<FriendRequestRelevantData[]>(friendRequestSenderUserData || []);
 
   const handleClosePopUp = () => {
     closePopUp();
@@ -143,21 +146,64 @@ export const PopUpFriendRequest = ({
   const acceptFriendRequest = async (requestId: string) => {
     try {
       // Update the friendship status to ACCEPTED
-      const { data: updatedFriendRequest, errors } =
+      const { data: updatedFriendRequest, errors: errorUpdateFriendRequest } =
         await client.models.Friendship.update({
           id: requestId,
           status: "ACCEPTED",
           updatedAt: new Date().toISOString(),
         });
 
-      if (errors) {
-        console.error("Error updating friend request:", errors);
+      if (errorUpdateFriendRequest) {
+        console.error(
+          "Error updating friend request:",
+          errorUpdateFriendRequest
+        );
+        return;
+      }
+
+      // Find the specific friend request to get senderId and senderUsername
+      const friendRequest = friendRequestSenderDataState.find(
+        (request) => request.requestId === requestId
+      );
+      if (!friendRequest) {
+        console.error("Friend request not found for ID:", requestId);
+        return;
+      }
+
+      const { senderId } = friendRequest;
+
+      // Make TypeScript happy
+      if (!user || !senderId) {
+        console.error("User data is missing, cannot create reverse friendship");
+        return;
+      }
+
+      // If user accepts a friend request, create the reverse friendship.
+      const {
+        data: reverseFriendRequest,
+        errors: errorCreateReverseFriendRequest,
+      } = await client.models.Friendship.create({
+        userId: user.id,
+        senderUsername: user.username,
+        friendId: senderId,
+        status: "ACCEPTED",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      if (errorCreateReverseFriendRequest) {
+        console.error(
+          "Error creating reverse friend request:",
+          errorCreateReverseFriendRequest
+        );
         return;
       }
 
       console.log("Friend request accepted:", updatedFriendRequest);
+      console.log("Reverse friend request created:", reverseFriendRequest);
+
       setFriendRequestSenderDataState((prevData) =>
-        prevData.filter(([id]) => id !== requestId)
+        prevData.filter((request) => request.requestId !== requestId)
       );
     } catch (error) {
       console.error("Unknown Error: " + error);
@@ -167,19 +213,18 @@ export const PopUpFriendRequest = ({
   const rejectFriendRequest = async (requestId: string) => {
     try {
       // Delete the friendship
-      const { data: updatedFriendRequest, errors } =
-        await client.models.Friendship.delete({
-          id: requestId,
-        });
+      const { data, errors } = await client.models.Friendship.delete({
+        id: requestId,
+      });
 
       if (errors) {
         console.error(errors);
         return;
       }
 
-      console.log("Friend request rejected:", updatedFriendRequest);
+      console.log("Friend request rejected");
       setFriendRequestSenderDataState((prevData) =>
-        prevData.filter(([id]) => id !== requestId)
+        prevData.filter((request) => request.requestId !== requestId)
       );
     } catch (error) {
       console.error("Error rejecting friend request:", error);
@@ -191,49 +236,49 @@ export const PopUpFriendRequest = ({
       <h2 className="text-xl font-bold mb-4">Friend Requests</h2>
       {friendRequestSenderDataState &&
       friendRequestSenderDataState.length > 0 ? (
-        friendRequestSenderDataState.map(
-          ([requestId, senderId, username, iconS3Url, status]) => {
-            if (!requestId || status !== "PENDING") return null;
+        friendRequestSenderDataState.map((request) => {
+          if (!request.requestId || request.status !== "PENDING") return null;
 
-            return (
-              <div
-                key={requestId}
-                className="flex items-center bg-midnight p-2 w-full rounded text-white space-x-4"
-              >
-                {iconS3Url ? (
-                  <div className="avatar">
-                    <div className="w-7 rounded-full">
-                      <img src={iconS3Url} alt="Icon" />
-                    </div>
+          return (
+            <div
+              key={request.requestId}
+              className="flex items-center bg-midnight p-2 w-full rounded text-white space-x-4"
+            >
+              {request.iconS3Url ? (
+                <div className="avatar">
+                  <div className="w-7 rounded-full">
+                    <img src={request.iconS3Url} alt="Icon" />
                   </div>
-                ) : (
-                  <div className="avatar">
-                    <div className="skeleton w-7 shrink-0 rounded-full"></div>
-                  </div>
-                )}
-                {/* Username */}
-                <span className="flex-1">{username || "Unknown User"}</span>
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    className="btn btn-success btn-xs"
-                    onClick={() => acceptFriendRequest(requestId)}
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-error btn-xs"
-                    onClick={() => rejectFriendRequest(requestId)}
-                  >
-                    Reject
-                  </button>
                 </div>
+              ) : (
+                <div className="avatar">
+                  <div className="skeleton w-7 shrink-0 rounded-full"></div>
+                </div>
+              )}
+              {/* Username */}
+              <span className="flex-1">
+                {request.senderUsername || "Unknown User"}
+              </span>
+              {/* Action Buttons */}
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  className="btn btn-success btn-xs"
+                  onClick={() => acceptFriendRequest(request.requestId!)}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-error btn-xs"
+                  onClick={() => rejectFriendRequest(request.requestId!)}
+                >
+                  Reject
+                </button>
               </div>
-            );
-          }
-        )
+            </div>
+          );
+        })
       ) : (
         <p className="text-gray-400">No friend requests at this time.</p>
       )}
