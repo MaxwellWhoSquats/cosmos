@@ -9,13 +9,22 @@ import { AnimateWord } from "../components/ui/AnimateWord";
 import { CornerIcon } from "../components/Icons/CornerIcon";
 import { cn } from "@/lib/utils";
 import { PopUpAddFriend, PopUpFriendRequest } from "../components/PopUps";
+import { downloadData } from "aws-amplify/storage";
 
 const Home = () => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
-  const [username, setUsername] = useState<string>("");
-  const [friendRequestSenderUsernames, setFriendRequestSenderUsernames] =
-    useState<string[]>([]);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [username, setUsername] = useState<string>("");
+  const [friendRequestSenderUserData, setFriendRequestSenderUserData] =
+    useState<
+      [
+        string | null, // friend request Id
+        string | null, // userId of sender
+        string | null, // username of sender
+        string | null, // s3 icon url of sender
+        string | null, // status
+      ][]
+    >([]);
   const [showAddFriendPopUp, setShowAddFriendPopUp] = useState<boolean>(false);
   const [showFriendRequestsPopUp, setShowFriendRequestsPopUp] =
     useState<boolean>(false);
@@ -45,12 +54,12 @@ const Home = () => {
       );
       gsap.fromTo(
         dashboardRef.current,
-        { scale: 0.8, opacity: 0 },
+        { scale: 0.9, opacity: 0 },
         {
           scale: 1,
           opacity: 1,
-          delay: 1.1,
-          duration: 0.5,
+          delay: 1.2,
+          duration: 0.4,
           ease: "power2.out",
         }
       );
@@ -136,7 +145,7 @@ const Home = () => {
       // Get all friend requests for this user
       const { data: friendRequests, errors: errorGetFriendRequests } =
         await client.models.Friendship.list({
-          filter: { friendId: { eq: user?.id } },
+          filter: { friendId: { eq: user?.id } }, // friendId is recipient of friend request
         });
 
       if (errorGetFriendRequests) {
@@ -147,16 +156,76 @@ const Home = () => {
         return;
       }
 
-      // Get the usernames of the friend request senders
-      const senderUsernames = friendRequests
-        .map((record) => record.senderUsername)
-        .filter((name): name is string => name !== null && name !== undefined);
+      const friendRequestData: [
+        string | null, // friend request Id
+        string | null, // userId of sender
+        string | null, // username of sender
+        string | null, // s3 icon url of sender
+        string | null, // status
+      ][] = [];
 
-      if (senderUsernames.length > 0) {
-        setFriendRequestSenderUsernames(senderUsernames);
+      // Process each friend request
+      for (let request of friendRequests) {
+        let requestId = request.id; // ID of the Friendship record
+        let senderId = request.userId; // userId is the User model id of the sender of the friend request
+        let senderUsername = request.senderUsername;
+        let senderIcon = null;
+        let status = request.status;
+
+        if (senderUsername && senderId) {
+          try {
+            // Get sender's user profile to get their icon
+            const {
+              data: friendRequestSenderUserData,
+              errors: errorGetFriendRequestSenderUserData,
+            } = await client.models.User.get({
+              id: senderId,
+            });
+
+            if (errorGetFriendRequestSenderUserData) {
+              console.error(
+                "Error getting user profile:" +
+                  errorGetFriendRequestSenderUserData
+              );
+              friendRequestData.push([
+                senderId,
+                senderUsername,
+                null,
+                requestId,
+                status,
+              ]);
+              continue;
+            }
+
+            if (friendRequestSenderUserData?.icon) {
+              try {
+                // Download profile icon from S3
+                const { body } = await downloadData({
+                  path: friendRequestSenderUserData.icon,
+                }).result;
+                senderIcon = URL.createObjectURL(await body.blob());
+              } catch (error) {
+                console.error("Failed to download profile icon:", error);
+              }
+            }
+
+            friendRequestData.push([
+              requestId,
+              senderId,
+              senderUsername,
+              senderIcon,
+              status,
+            ]);
+          } catch (error) {
+            console.error("Unknown Error: " + error);
+          }
+        }
+      }
+      if (friendRequestData.length > 0) {
+        setFriendRequestSenderUserData(friendRequestData);
       }
     } catch (error) {
-      console.error("Unknown Error: ", error);
+      console.error("Unknown Error:", error);
     }
   };
 
@@ -198,9 +267,15 @@ const Home = () => {
               onClick={() => setShowFriendRequestsPopUp(true)}
             >
               <p>Friend Requests</p>
-              {friendRequestSenderUsernames.length > 0 && (
+              {friendRequestSenderUserData.filter(
+                ([, , , , status]) => status === "PENDING"
+              ).length > 0 && (
                 <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                  {friendRequestSenderUsernames.length}
+                  {
+                    friendRequestSenderUserData.filter(
+                      ([, , , , status]) => status === "PENDING"
+                    ).length
+                  }
                 </span>
               )}
             </button>
@@ -242,7 +317,7 @@ const Home = () => {
           >
             <PopUpFriendRequest
               closePopUp={closeFriendRequestsPopUp}
-              friendRequests={friendRequestSenderUsernames}
+              friendRequestSenderUserData={friendRequestSenderUserData}
             />
           </div>
         </>

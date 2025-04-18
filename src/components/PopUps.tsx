@@ -9,7 +9,13 @@ interface PopUpAddFriendProps {
 
 interface PopUpFriendRequestProps {
   closePopUp: () => void;
-  friendRequests?: string[];
+  friendRequestSenderUserData?: [
+    string | null, // friend request Id
+    string | null, // userId of sender
+    string | null, // username of sender
+    string | null, // s3 icon url of sender
+    string | null, // status
+  ][];
 }
 
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
@@ -125,20 +131,112 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
 
 export const PopUpFriendRequest = ({
   closePopUp,
-  friendRequests,
+  friendRequestSenderUserData: friendRequestSenderData,
 }: PopUpFriendRequestProps) => {
+  const [friendRequestSenderDataState, setFriendRequestSenderDataState] =
+    useState(friendRequestSenderData || []);
+
   const handleClosePopUp = () => {
     closePopUp();
+  };
+
+  const acceptFriendRequest = async (requestId: string) => {
+    try {
+      // Update the friendship status to ACCEPTED
+      const { data: updatedFriendRequest, errors } =
+        await client.models.Friendship.update({
+          id: requestId,
+          status: "ACCEPTED",
+          updatedAt: new Date().toISOString(),
+        });
+
+      if (errors) {
+        console.error("Error updating friend request:", errors);
+        return;
+      }
+
+      console.log("Friend request accepted:", updatedFriendRequest);
+      setFriendRequestSenderDataState((prevData) =>
+        prevData.filter(([id]) => id !== requestId)
+      );
+    } catch (error) {
+      console.error("Unknown Error: " + error);
+    }
+  };
+
+  const rejectFriendRequest = async (requestId: string) => {
+    try {
+      // Delete the friendship
+      const { data: updatedFriendRequest, errors } =
+        await client.models.Friendship.delete({
+          id: requestId,
+        });
+
+      if (errors) {
+        console.error(errors);
+        return;
+      }
+
+      console.log("Friend request rejected:", updatedFriendRequest);
+      setFriendRequestSenderDataState((prevData) =>
+        prevData.filter(([id]) => id !== requestId)
+      );
+    } catch (error) {
+      console.error("Error rejecting friend request:", error);
+    }
   };
 
   return (
     <div className="p-4 space-y-4">
       <h2 className="text-xl font-bold mb-4">Friend Requests</h2>
-      {friendRequests?.map((username, index) => (
-        <div key={index} className="flex">
-          {username}
-        </div>
-      ))}
+      {friendRequestSenderDataState &&
+      friendRequestSenderDataState.length > 0 ? (
+        friendRequestSenderDataState.map(
+          ([requestId, senderId, username, iconS3Url, status]) => {
+            if (!requestId || status !== "PENDING") return null;
+
+            return (
+              <div
+                key={requestId}
+                className="flex items-center bg-midnight p-2 w-full rounded text-white space-x-4"
+              >
+                {iconS3Url ? (
+                  <div className="avatar">
+                    <div className="w-7 rounded-full">
+                      <img src={iconS3Url} alt="Icon" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="avatar">
+                    <div className="skeleton w-7 shrink-0 rounded-full"></div>
+                  </div>
+                )}
+                {/* Username */}
+                <span className="flex-1">{username || "Unknown User"}</span>
+                {/* Action Buttons */}
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    className="btn btn-success btn-xs"
+                    onClick={() => acceptFriendRequest(requestId)}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-error btn-xs"
+                    onClick={() => rejectFriendRequest(requestId)}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            );
+          }
+        )
+      ) : (
+        <p className="text-gray-400">No friend requests at this time.</p>
+      )}
       <div className="flex justify-end space-x-2">
         <button
           type="button"
