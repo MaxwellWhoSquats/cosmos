@@ -56,7 +56,7 @@ const schema = a.schema({
       allow.ownerDefinedIn('receiverId'),
     ]),
 
-  DirectMessage: a
+    DirectMessage: a
     .model({
       id: a.id().required(),
       senderId: a.id().required(),
@@ -65,9 +65,10 @@ const schema = a.schema({
       conversation: a.belongsTo('Conversation', 'conversationId'),
       content: a.string().required(),
       createdAt: a.datetime(),
+      allowedParticipants: a.string().array(),
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn('senderId'),
+      allow.ownersDefinedIn('allowedParticipants'),
     ]),
 
   Server: a

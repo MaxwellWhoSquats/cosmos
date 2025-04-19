@@ -20,12 +20,16 @@ const Home = () => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [isReady, setIsReady] = useState<boolean>(false);
   const [username, setUsername] = useState<string>("");
+  const [senderIconUrl, setSenderIconUrl] = useState<string | null>(null);
   const [friendRequestSenderUserData, setFriendRequestSenderUserData] =
     useState<FriendRequestRelevantData[]>([]);
   const [friends, setFriends] = useState<FriendRequestRelevantData[]>([]);
   const [showAddFriendPopUp, setShowAddFriendPopUp] = useState<boolean>(false);
   const [showFriendRequestsPopUp, setShowFriendRequestsPopUp] =
     useState<boolean>(false);
+  const [selectedFriend, setSelectedFriend] =
+    useState<FriendRequestRelevantData | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const contentRef = useRef<HTMLDivElement | null>(null);
   const dashboardRef = useRef<HTMLDivElement | null>(null);
@@ -33,12 +37,20 @@ const Home = () => {
   const friendRequestsPopUpRef = useRef<HTMLDivElement | null>(null);
   const backdropRef = useRef<HTMLDivElement | null>(null);
 
-  // Make sure everything is loaded before starting animations
+  // Make sure necessary data is loaded
   useEffect(() => {
     if (!loading && user) {
       setUsername(user.username);
       setIsReady(true);
       getUserFriendRequests();
+
+      // Fetch user icon URL if available to use in DMs
+      if (user?.icon) {
+        downloadData({ path: user?.icon })
+          .result.then(({ body }) => body.blob())
+          .then((blob) => setSenderIconUrl(URL.createObjectURL(blob)))
+          .catch((error) => console.error(error));
+      }
     }
   }, [loading, user]);
 
@@ -53,59 +65,29 @@ const Home = () => {
       gsap.fromTo(
         dashboardRef.current,
         { scale: 0.9, opacity: 0 },
-        {
-          scale: 1,
-          opacity: 1,
-          delay: 1.2,
-          duration: 0.4,
-          ease: "power2.out",
-        }
+        { scale: 1, opacity: 1, delay: 1.2, duration: 0.4, ease: "power2.out" }
       );
     }
   }, [isReady]);
 
   // Animate "Add Friend" popup in
   useEffect(() => {
-    if (
-      showAddFriendPopUp &&
-      addFriendPopUpRef.current &&
-      backdropRef.current
-    ) {
+    if (showAddFriendPopUp && addFriendPopUpRef.current && backdropRef.current)
       animatePopUp(addFriendPopUpRef).open();
-    }
   }, [showAddFriendPopUp]);
 
-  // Animate "Add Friend" popup out
-  const closeAddFriendPopUp = () => {
-    if (addFriendPopUpRef.current && backdropRef.current) {
-      animatePopUp(addFriendPopUpRef).close();
-    } else {
-      setShowAddFriendPopUp(false);
-    }
-  };
-
-  // Animate "Friend Requets" popup in
+  // Animate "Friend Requests" popup in
   useEffect(() => {
     if (
       showFriendRequestsPopUp &&
       friendRequestsPopUpRef.current &&
       backdropRef.current
-    ) {
+    )
       animatePopUp(friendRequestsPopUpRef).open();
-    }
   }, [showFriendRequestsPopUp]);
 
-  // Animate "Friend Requests" popup out
-  const closeFriendRequestsPopUp = () => {
-    if (friendRequestsPopUpRef.current && backdropRef.current) {
-      animatePopUp(friendRequestsPopUpRef).close();
-    } else {
-      setShowFriendRequestsPopUp(false);
-    }
-  };
-
-  const animatePopUp = (ref: any) => {
-    function open() {
+  const animatePopUp = (ref: any) => ({
+    open: () => {
       gsap.fromTo(
         ref.current,
         { scale: 0.95, opacity: 0 },
@@ -116,9 +98,8 @@ const Home = () => {
         { opacity: 0 },
         { opacity: 0.5, duration: 0.3 }
       );
-    }
-
-    function close() {
+    },
+    close: () => {
       gsap.to(ref.current, {
         scale: 0.95,
         opacity: 0,
@@ -133,11 +114,20 @@ const Home = () => {
             ? setShowAddFriendPopUp(false)
             : setShowFriendRequestsPopUp(false),
       });
-    }
+    },
+  });
 
-    return { open, close };
-  };
+  const closeAddFriendPopUp = () =>
+    addFriendPopUpRef.current && backdropRef.current
+      ? animatePopUp(addFriendPopUpRef).close()
+      : setShowAddFriendPopUp(false);
 
+  const closeFriendRequestsPopUp = () =>
+    friendRequestsPopUpRef.current && backdropRef.current
+      ? animatePopUp(friendRequestsPopUpRef).close()
+      : setShowFriendRequestsPopUp(false);
+
+  // Fetch all the friend requests for the authenticated user
   const getUserFriendRequests = async () => {
     try {
       // Get all friend requests for this user
@@ -145,96 +135,107 @@ const Home = () => {
         await client.models.Friendship.list({
           filter: { friendId: { eq: user?.id } }, // friendId is recipient of friend request
         });
-
       if (errorGetFriendRequests) {
-        console.error(
-          "Error getting friend requests: ",
-          errorGetFriendRequests
-        );
-        return;
+        console.error(errorGetFriendRequests);
       }
 
       const friendRequestData: FriendRequestRelevantData[] = [];
       const acceptedFriends: FriendRequestRelevantData[] = [];
 
-      // Process each friend request
       for (let request of friendRequests) {
-        let requestId = request.id;
-        let senderId = request.userId;
-        let senderUsername = request.senderUsername;
+        const {
+          id: requestId,
+          userId: senderId,
+          senderUsername,
+          status,
+        } = request;
         let iconS3Url = null;
-        let status = request.status;
 
-        if (senderUsername && senderId) {
-          try {
-            // Get sender's user profile to get their icon
-            const {
-              data: friendRequestSenderUserData,
-              errors: errorGetFriendRequestSenderUserData,
-            } = await client.models.User.get({
-              id: senderId,
-            });
+        if (senderId && senderUsername) {
+          const { data: senderData, errors: senderErrors } =
+            await client.models.User.get({ id: senderId });
 
-            if (errorGetFriendRequestSenderUserData) {
-              console.error(
-                "Error getting user profile:" +
-                  errorGetFriendRequestSenderUserData
-              );
-              // Add to appropriate array even if profile fetch fails
-              const friendData = {
-                requestId,
-                senderId,
-                senderUsername,
-                iconS3Url: null,
-                status,
-              };
-              if (status === "ACCEPTED") {
-                acceptedFriends.push(friendData);
-              } else {
-                friendRequestData.push(friendData);
-              }
-              continue;
+          if (senderErrors)
+            console.error("Error fetching sender data:", senderErrors);
+          // Fetch the friendRequest sender's icon if there is one
+          else if (senderData?.icon) {
+            try {
+              const { body } = await downloadData({ path: senderData.icon })
+                .result;
+              iconS3Url = URL.createObjectURL(await body.blob());
+            } catch (error) {
+              console.error("Failed to download icon:", error);
             }
-
-            if (friendRequestSenderUserData?.icon) {
-              try {
-                // Download profile icon from S3
-                const { body } = await downloadData({
-                  path: friendRequestSenderUserData.icon,
-                }).result;
-                iconS3Url = URL.createObjectURL(await body.blob());
-              } catch (error) {
-                console.error("Failed to download profile icon:", error);
-              }
-            }
-
-            const friendData = {
-              requestId,
-              senderId,
-              senderUsername,
-              iconS3Url,
-              status,
-            };
-            if (status === "ACCEPTED") {
-              acceptedFriends.push(friendData);
-            } else {
-              friendRequestData.push(friendData);
-            }
-          } catch (error) {
-            console.error("Unknown Error: " + error);
           }
+
+          const friendData = {
+            requestId,
+            senderId,
+            senderUsername,
+            iconS3Url,
+            status,
+          };
+          status === "ACCEPTED"
+            ? acceptedFriends.push(friendData)
+            : friendRequestData.push(friendData);
         }
       }
 
-      if (friendRequestData.length > 0) {
-        setFriendRequestSenderUserData(friendRequestData);
-      }
-      if (acceptedFriends.length > 0) {
-        setFriends(acceptedFriends);
-      }
+      setFriendRequestSenderUserData(friendRequestData);
+      setFriends(acceptedFriends);
     } catch (error) {
-      console.error("Unknown Error:", error);
+      console.error("Unknown Error: ", error);
     }
+  };
+
+  // Handle loading a DM when the friend is clicked from the friends list
+  const handleFriendClick = async (friend: FriendRequestRelevantData) => {
+    if (!user?.id) return console.error("User not authenticated");
+    if (!friend.senderId) return console.error("Friend senderId missing");
+
+    setSelectedFriend(friend);
+
+    try {
+      const userConversationId = await ensureConversation(
+        user.id,
+        friend.senderId
+      );
+      await ensureConversation(friend.senderId, user.id); // Ensure the reverse conversation exists
+
+      setConversationId(userConversationId);
+    } catch (error) {
+      console.error("Error loading DM: ", error);
+    }
+  };
+
+  // Ensure a conversation exists between two users, creating it if necessary
+  const ensureConversation = async (
+    senderId: string,
+    receiverId: string
+  ): Promise<string | null> => {
+    const { data: conversations, errors } =
+      await client.models.Conversation.list({
+        filter: { senderId: { eq: senderId }, receiverId: { eq: receiverId } },
+      });
+
+    if (errors) throw new Error(`Error fetching conversation: ${errors}`);
+
+    if (conversations.length > 0) return conversations[0].id;
+
+    // Create new conversation if there isn't one already
+    const { data: newConversation, errors: errorCreateNewConversation } =
+      await client.models.Conversation.create({
+        senderId,
+        receiverId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+    if (errorCreateNewConversation)
+      throw new Error(
+        `Error creating conversation: ${errorCreateNewConversation}`
+      );
+    return newConversation?.id || null;
   };
 
   return (
@@ -291,7 +292,7 @@ const Home = () => {
             </section>
             <section
               id="friendsList"
-              className="mt-4 p-4 bg-base-300/80 rounded-md flex-1 overflow-y-auto"
+              className="mt-4 p-4 bg-base-300 rounded-md flex-1 overflow-y-auto"
             >
               <h3 className="text-lg font-semibold text-gray-200 mb-2">
                 Friends List
@@ -302,6 +303,7 @@ const Home = () => {
                     <div
                       key={friend.senderId}
                       className="flex items-center space-x-3 p-2 rounded-md hover:bg-base-100 hover:scale-105 transition duration-100 cursor-pointer"
+                      onClick={() => handleFriendClick(friend)}
                     >
                       {friend.iconS3Url ? (
                         <img
@@ -323,8 +325,22 @@ const Home = () => {
               </div>
             </section>
           </aside>
-          <section className="flex-[3] z-50 m-4 rounded bg-base-300/80">
-            <DM />
+          <section className="flex-[3] z-50 m-4 rounded">
+            {user && conversationId && selectedFriend ? (
+              <DM
+                conversationId={conversationId}
+                senderUserId={user.id}
+                senderUsername={user.username}
+                senderIcon={senderIconUrl}
+                receiverUsername={selectedFriend.senderUsername}
+                receiverId={selectedFriend.senderId}
+                receiverIcon={selectedFriend.iconS3Url}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <p>Select a friend to start chatting</p>
+              </div>
+            )}
           </section>
           <CornerIcon className="absolute h-6 w-6 -top-3 -left-3 dark:text-white text-black" />
           <CornerIcon className="absolute h-6 w-6 -bottom-3 -left-3 dark:text-white text-black" />
