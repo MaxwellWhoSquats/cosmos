@@ -337,7 +337,7 @@ const Home = () => {
                 receiverIcon={selectedFriend.iconS3Url}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
+              <div className="flex items-center justify-center h-full w-full text-gray-400">
                 <p>Select a friend to start chatting</p>
               </div>
             )}
