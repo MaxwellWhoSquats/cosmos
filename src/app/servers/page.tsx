@@ -6,17 +6,15 @@ import { useState, useRef, useEffect } from "react";
 import gsap from "gsap";
 import CreateServerPopUp from "./components/CreateServerPopUp";
 import { downloadData } from "aws-amplify/storage";
-
-const VideoCalling = dynamic(() => import("./components/VideoCallingClient"), {
-  ssr: false,
-});
+import Server from "./components/Server";
 
 export default function ServersPage() {
   const { dbUser: user } = useAmplifyAuthenticatedUser();
+  const [servers, setServers] = useState<{ id: string; iconUrl: string }[]>([]);
+  const [serverId, setServerId] = useState<string>(""); // For front-end
   const [showPopUp, setShowPopUp] = useState(false);
   const popUpRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
-  const [serverIcons, setServerIcons] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -62,59 +60,53 @@ export default function ServersPage() {
   const getAllServerInfos = async () => {
     if (!user) return;
     try {
-      // Fetch servers the user is a member of via ServerMember field
       const { data: serversWithUser, errors: errorGetAllServers } =
         await client.models.ServerMember.list({
           filter: { userId: { eq: user.id } },
         });
       if (errorGetAllServers) {
-        console.error("Errors fetching servers:", errorGetAllServers);
+        console.error("Errors fetching servers: ", errorGetAllServers);
       }
 
-      // Fetch server IDs
       const serverIds = serversWithUser.map((record) => record.serverId);
 
-      // Fetch server icons from servers
-      const serverIconsPromises = serverIds.map(async (serverId) => {
+      const iconMapPromises = serverIds.map(async (serverId) => {
         const { data: server, errors: errorGetServerIcons } =
-          await client.models.Server.get({
-            id: serverId,
-          });
+          await client.models.Server.get({ id: serverId });
         if (errorGetServerIcons) {
-          console.error("Errors fetching server icons:", errorGetServerIcons);
+          console.error("Errors fetching server icons: ", errorGetServerIcons);
         }
-        return server?.icon;
+        return server?.icon ? { id: serverId, icon: server.icon } : null;
       });
 
-      // Wait for all promises and filter out undefined values
-      const theServerIcons = (await Promise.all(serverIconsPromises)).filter(
-        (name): name is string => typeof name === "string"
+      const serverIdToIconMap = (await Promise.all(iconMapPromises)).filter(
+        (entry): entry is { id: string; icon: string } => !!entry
       );
-      console.log("Fetched servers:", theServerIcons);
 
-      // Automatically download icons
-      if (theServerIcons.length > 0) {
-        await downloadServerIcons(theServerIcons);
-      }
+      await downloadServerIcons(serverIdToIconMap);
     } catch (error) {
-      console.error("Error fetching servers:", error);
+      console.error("Unknown Error: ", error);
     }
   };
 
-  const downloadServerIcons = async (icons: string[]) => {
-    const theServerIconURLs: string[] = [];
-    for (let icon of icons) {
+  const downloadServerIcons = async (
+    serverIdToIconMap: { id: string; icon: string }[]
+  ) => {
+    const downloaded: { id: string; iconUrl: string }[] = [];
+
+    for (let { id, icon } of serverIdToIconMap) {
       try {
         const { body } = await downloadData({ path: icon }).result;
         const blob = await body.blob();
         const url = URL.createObjectURL(blob);
 
-        theServerIconURLs.push(url);
+        downloaded.push({ id, iconUrl: url });
       } catch (error) {
         console.error(`Failed to download icon ${icon}:`, error);
       }
     }
-    setServerIcons(theServerIconURLs);
+
+    setServers(downloaded);
   };
 
   return (
@@ -122,12 +114,19 @@ export default function ServersPage() {
       <header className="flex mb-4 items-center justify-between">
         <div id="left-side" className="flex">
           <h1 className="text-4xl font-semibold mr-4">Servers</h1>
-          <ul className="flex flex-row items-center space-x-2">
-            {serverIcons.map((serverIcon, index) => (
-              <li key={index}>
-                <div className="avatar avatar-online">
-                  <div className="w-10 rounded-xl cursor-pointer hover:opacity-70">
-                    <img src={serverIcon} alt="ProfileIcon" />
+          <ul className="flex flex-row items-center space-x-4">
+            {servers.map(({ id, iconUrl }, index) => (
+              <li key={id}>
+                <div
+                  className={`avatar ${
+                    serverId === id
+                      ? "scale-110 rounded-xl outline-2 outline-gray-300"
+                      : ""
+                  }`}
+                  onClick={() => setServerId(id)}
+                >
+                  <div className="w-10 rounded-xl cursor-pointer hover:opacity-80 transition-opacity">
+                    <img src={iconUrl} alt={`Server ${index}`} />
                   </div>
                 </div>
               </li>
@@ -145,7 +144,13 @@ export default function ServersPage() {
       </header>
 
       <div className="flex-1 p-4 rounded bg-base-200 overflow-hidden">
-        <VideoCalling />
+        {serverId ? (
+          <Server serverId={serverId} />
+        ) : (
+          <div className="flex w-full h-full items-center justify-center">
+            Select a server.
+          </div>
+        )}
       </div>
 
       {showPopUp && (
