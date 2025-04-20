@@ -61,7 +61,7 @@ const Server = ({ serverId }: ServerProps) => {
     }
   }, [showAddServerMemberPopUp]);
 
-  // add server member popup close animation
+  // Add server member popup close animation
   const closeAddServerMemberPopUp = () => {
     if (addServerMemberPopUpRef.current) {
       gsap.to(addServerMemberPopUpRef.current, {
@@ -80,6 +80,7 @@ const Server = ({ serverId }: ServerProps) => {
       style={{ opacity: 0 }}
       className="flex flex-row w-full h-full border border-gray-700"
     >
+      {/* Left Sidebar */}
       <aside className="flex-[1] flex flex-col bg-base-300">
         {/* Server Name */}
         <div className="flex-1 px-6 space-x-4 flex items-center border-b border-gray-700 bg-midnight">
@@ -132,8 +133,32 @@ const Server = ({ serverId }: ServerProps) => {
         </div>
       </aside>
       {/* Main Content */}
-      <main className="flex-[4] bg-midnight relative"></main>
-
+      <main className="flex-[4] bg-midnight border-l border-r border-gray-700 relative"></main>
+      {/* Right Sidebar: Server Members */}
+      <aside className="flex-[1] flex flex-col bg-base-300">
+        <div className="flex justify-center px-6 py-4 border-b border-gray-700 bg-midnight">
+          <h3 className="text-lg font-bold text-white">Server Members</h3>
+        </div>
+        <div className="flex-1 p-6 space-y-4">
+          <section>
+            <h4 className="mb-2 text-xs font-semibold text-gray-400 uppercase">
+              Members
+            </h4>
+            <ul className="space-y-2">
+              {serverMembers && serverMembers.length > 0 ? (
+                serverMembers.map((member) => (
+                  <li key={member.id} className="text-gray-300">
+                    {member.user.username}
+                  </li>
+                ))
+              ) : (
+                <li className="text-gray-400">No members found</li>
+              )}
+            </ul>
+          </section>
+        </div>
+      </aside>
+      {/* Popup */}
       {showAddServerMemberPopUp && (
         <div
           ref={addServerMemberPopUpRef}
