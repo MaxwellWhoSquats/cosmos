@@ -163,7 +163,7 @@ const DM = ({
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col w-full">
       <div className="p-4 bg-base-200 rounded-t-md border-b border-slate-800">
         <h3 className="text-lg font-semibold text-gray-200">
           Chat with {receiverUsername || "User"}
@@ -172,7 +172,7 @@ const DM = ({
       <section
         id="messageThread"
         ref={messageThreadRef}
-        className="overflow-y-auto min-h-[52vh] max-h-[52vh] p-4 flex flex-col" // BUG HERE: fix this to size dynamically to fill parent, without breaking overflow
+        className="overflow-y-auto min-h-[55vh] max-h-[55vh] p-4 flex flex-col" // BUG HERE: fix this to size dynamically to fill parent, without breaking overflow
       >
         <div className="flex flex-col justify-end flex-grow space-y-2">
           {messages.length > 0 ? (

@@ -9,7 +9,7 @@ import { AnimateWord } from "../components/ui/AnimateWord";
 import { CornerIcon } from "../components/Icons/CornerIcon";
 import { cn } from "@/lib/utils";
 import {
-  FriendRequestRelevantData,
+  FriendRelevantData,
   PopUpAddFriend,
   PopUpFriendRequest,
 } from "../components/PopUps";
@@ -22,13 +22,13 @@ const Home = () => {
   const [username, setUsername] = useState<string>("");
   const [senderIconUrl, setSenderIconUrl] = useState<string | null>(null);
   const [friendRequestSenderUserData, setFriendRequestSenderUserData] =
-    useState<FriendRequestRelevantData[]>([]);
-  const [friends, setFriends] = useState<FriendRequestRelevantData[]>([]);
+    useState<FriendRelevantData[]>([]);
+  const [friends, setFriends] = useState<FriendRelevantData[]>([]);
   const [showAddFriendPopUp, setShowAddFriendPopUp] = useState<boolean>(false);
   const [showFriendRequestsPopUp, setShowFriendRequestsPopUp] =
     useState<boolean>(false);
   const [selectedFriend, setSelectedFriend] =
-    useState<FriendRequestRelevantData | null>(null);
+    useState<FriendRelevantData | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -139,8 +139,8 @@ const Home = () => {
         console.error(errorGetFriendRequests);
       }
 
-      const friendRequestData: FriendRequestRelevantData[] = [];
-      const acceptedFriends: FriendRequestRelevantData[] = [];
+      const friendRequestData: FriendRelevantData[] = [];
+      const acceptedFriends: FriendRelevantData[] = [];
 
       for (let request of friendRequests) {
         const {
@@ -189,7 +189,7 @@ const Home = () => {
   };
 
   // Handle loading a DM when the friend is clicked from the friends list
-  const handleFriendClick = async (friend: FriendRequestRelevantData) => {
+  const handleFriendClick = async (friend: FriendRelevantData) => {
     if (!user?.id) return console.error("User not authenticated");
     if (!friend.senderId) return console.error("Friend senderId missing");
 
@@ -325,7 +325,7 @@ const Home = () => {
               </div>
             </section>
           </aside>
-          <section className="flex-[3] z-50 m-4 rounded">
+          <section className="flex-[3] flex items-center z-50 m-4 rounded">
             {user && conversationId && selectedFriend ? (
               <DM
                 conversationId={conversationId}

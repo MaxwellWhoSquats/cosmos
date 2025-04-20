@@ -1,13 +1,14 @@
 "use client";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
 import { client } from "@/src/utils/amplifyClient";
-import React, { useState } from "react";
+import { downloadData } from "aws-amplify/storage";
+import React, { useEffect, useState } from "react";
 
-export interface FriendRequestRelevantData {
+export interface FriendRelevantData {
   requestId: string | null; // friend request Id
   senderId: string | null; // userId of sender
   senderUsername: string | null; // username of sender
-  iconS3Url: string | null; // s3 icon url of sender
+  iconS3Url?: string | null; // s3 icon url of sender
   status: string | null; // status
 }
 
@@ -17,7 +18,12 @@ interface PopUpAddFriendProps {
 
 interface PopUpFriendRequestProps {
   closePopUp: () => void;
-  friendRequestSenderUserData?: FriendRequestRelevantData[];
+  friendRequestSenderUserData?: FriendRelevantData[];
+}
+
+interface PopUpAddServerMemberProps {
+  closePopUp: () => void;
+  serverId: string;
 }
 
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
@@ -137,7 +143,7 @@ export const PopUpFriendRequest = ({
 }: PopUpFriendRequestProps) => {
   const { dbUser: user } = useAmplifyAuthenticatedUser();
   const [friendRequestSenderDataState, setFriendRequestSenderDataState] =
-    useState<FriendRequestRelevantData[]>(friendRequestSenderUserData || []);
+    useState<FriendRelevantData[]>(friendRequestSenderUserData || []);
 
   const handleClosePopUp = () => {
     closePopUp();
@@ -291,6 +297,134 @@ export const PopUpFriendRequest = ({
           Close
         </button>
       </div>
+    </div>
+  );
+};
+
+export const PopUpAddServerMember = ({
+  closePopUp,
+  serverId,
+}: PopUpAddServerMemberProps) => {
+  const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
+  const [username, setUsername] = useState("");
+
+  const handleClosePopUp = () => {
+    closePopUp();
+  };
+
+  const addServerMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      console.error("No user authenticated");
+      return;
+    }
+
+    if (!username.trim()) {
+      return;
+    }
+
+    try {
+      // Query User model to find the friend by username
+      const { data: users, errors: errorFetchUser } =
+        await client.models.User.list({
+          filter: { username: { eq: username.trim() } },
+        });
+
+      if (errorFetchUser) {
+        console.error(errorFetchUser);
+        return;
+      }
+
+      if (!users || users.length === 0) {
+        console.log("No users with that username");
+        return;
+      }
+
+      const friend = users[0];
+      if (!friend?.id) {
+        console.error("Friend ID is missing.");
+        return;
+      }
+
+      const friendId = friend.id;
+
+      // Prevent adding self to the server
+      if (friendId === user.id) {
+        console.error("You cannot add yourself to the server.");
+        return;
+      }
+
+      // Check if the user is already a member of the server
+      const { data: serverMember, errors: serverMemberErrors } =
+        await client.models.ServerMember.list({
+          filter: {
+            userId: { eq: friendId },
+            serverId: { eq: serverId },
+          },
+        });
+
+      if (serverMemberErrors) {
+        console.error("Error checking server membership:", serverMemberErrors);
+        return;
+      }
+
+      if (serverMember.length > 0) {
+        return;
+      }
+
+      // Create the server member
+      const { data: theServerMember, errors: errorAddUserToServer } =
+        await client.models.ServerMember.create({
+          userId: friendId,
+          serverId: serverId,
+        });
+
+      if (errorAddUserToServer) {
+        console.error("Error adding server member:", errorAddUserToServer);
+        return;
+      }
+
+      if (theServerMember) {
+        console.log(
+          `Successfully created new server member: ${theServerMember.userId}`
+        );
+        setUsername("");
+        closePopUp();
+      }
+    } catch (error) {
+      console.error("Unknown error adding server member:", error);
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-bold mb-4">Add Friend to Server</h2>
+      <form onSubmit={addServerMember}>
+        <input
+          type="text"
+          placeholder="Friend's Username"
+          className="input input-bordered w-full mb-4"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <div className="flex justify-end space-x-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleClosePopUp}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-secondary btn-sm"
+            disabled={loading || !username.trim()}
+          >
+            Add Member
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
