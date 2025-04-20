@@ -143,11 +143,11 @@ export default function ServersPage() {
         </section>
       </header>
 
-      <div className="flex-1 p-4 rounded bg-base-200 overflow-hidden">
+      <div className="flex-1 rounded">
         {serverId ? (
           <Server serverId={serverId} />
         ) : (
-          <div className="flex w-full h-full items-center justify-center">
+          <div className="flex w-full h-full items-center justify-center border border-gray-700">
             Select a server.
           </div>
         )}
