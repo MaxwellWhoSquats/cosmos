@@ -3,6 +3,7 @@ import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticated
 import { client } from "@/src/utils/amplifyClient";
 import React, { useState } from "react";
 import { deleteServerMember } from "../app/servers/services/serverServices";
+import { downloadData } from "aws-amplify/storage";
 
 export interface FriendRelevantData {
   requestId: string | null; // friend request Id
@@ -24,6 +25,7 @@ interface PopUpFriendRequestProps {
 interface PopUpAddServerMemberProps {
   closePopUp: () => void;
   serverId: string;
+  onAdd: (newMember: ServerMember, newIcon: MemberIcon) => void;
 }
 
 interface PopUpServerMemberActionsProps {
@@ -311,6 +313,7 @@ export const PopUpFriendRequest = ({
 export const PopUpAddServerMember = ({
   closePopUp,
   serverId,
+  onAdd,
 }: PopUpAddServerMemberProps) => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [username, setUsername] = useState("");
@@ -377,6 +380,7 @@ export const PopUpAddServerMember = ({
       }
 
       if (serverMember.length > 0) {
+        console.log("User is already a member of the server");
         return;
       }
 
@@ -392,12 +396,41 @@ export const PopUpAddServerMember = ({
         return;
       }
 
-      if (theServerMember) {
+      if (theServerMember && friend && friend.username) {
         console.log(
           `Successfully created new server member: ${theServerMember.userId}`
         );
-        setUsername("");
-        closePopUp();
+        // Fetch the icon for the new member
+        let icon: string = "";
+        if (friend.icon) {
+          try {
+            const { body } = await downloadData({ path: friend.icon }).result;
+            icon = URL.createObjectURL(await body.blob());
+          } catch (error) {
+            console.error("Failed to download icon:", error);
+          }
+        }
+        // Construct the ServerMember object
+        if (friend && friend.username && icon) {
+          const newMember: ServerMember = {
+            id: theServerMember.id,
+            serverId: serverId,
+            user: {
+              id: friend.id,
+              username: friend.username,
+              icon: icon,
+            },
+          };
+          const newIcon: MemberIcon = {
+            id: friend.id,
+            icon,
+          };
+          // Call onAdd to update parent state
+          onAdd(newMember, newIcon);
+          setUsername("");
+        } else {
+          console.log("Skipping onAdd due to missing username or icon");
+        }
       }
     } catch (error) {
       console.error("Unknown error adding server member:", error);

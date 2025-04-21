@@ -106,6 +106,15 @@ const Server = ({ serverId }: ServerProps) => {
     }
   };
 
+  const handleAddServerMember = (
+    newMember: ServerMember,
+    newIcon: MemberIcon
+  ) => {
+    setServerMembers((prev) => [...prev, newMember]);
+    setMemberIcons((prev) => [...prev, newIcon]);
+    closeAddServerMemberPopUp();
+  };
+
   return (
     <div
       ref={serverContentRef}
@@ -229,6 +238,7 @@ const Server = ({ serverId }: ServerProps) => {
           <PopUpAddServerMember
             closePopUp={closeAddServerMemberPopUp}
             serverId={serverId}
+            onAdd={handleAddServerMember}
           />
         </div>
       )}
