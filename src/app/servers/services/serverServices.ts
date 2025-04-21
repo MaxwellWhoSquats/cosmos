@@ -1,4 +1,5 @@
 import { client } from "@/src/utils/amplifyClient";
+import { downloadData } from "aws-amplify/storage";
 
 export const getServerInfo = async (serverId: string) => {
   let serverName = "";
@@ -101,4 +102,47 @@ export const getServerInfo = async (serverId: string) => {
   }
 
   return { serverName, serverMembers, serverChannels };
+};
+
+export const downloadServerMemberIcons = async (serverId: string) => {
+  const { serverMembers } = await getServerInfo(serverId);
+  const members: { id: string; icon: string }[] = [];
+
+  for (let member of serverMembers) {
+    let icon = null;
+    if (member.user.icon) {
+      try {
+        const { body } = await downloadData({ path: member.user.icon })
+          .result;
+        icon = URL.createObjectURL(await body.blob());
+      } catch (error) {
+        console.error("Failed to download icon:", error);
+      }
+    }
+    members.push({
+      id: member.user.id,
+      icon: icon!
+    });
+  }
+  
+  return members;
+};
+
+export const deleteServerMember = async (memberId: string) => {
+  try {
+    const { data, errors } = await client.models.ServerMember.delete({
+      id: memberId,
+    });
+    if (errors) {
+      throw new Error("Failed to delete server member: " + errors);
+    }
+    if (!data) {
+      throw new Error("Server member not found");
+    }
+    console.log(`Successfully deleted server member: ${memberId}`);
+    return data;
+  } catch (error) {
+    console.error("Error deleting server member:", error);
+    throw error;
+  }
 };

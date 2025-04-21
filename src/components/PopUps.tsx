@@ -1,8 +1,8 @@
 "use client";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
 import { client } from "@/src/utils/amplifyClient";
-import { downloadData } from "aws-amplify/storage";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { deleteServerMember } from "../app/servers/services/serverServices";
 
 export interface FriendRelevantData {
   requestId: string | null; // friend request Id
@@ -24,6 +24,13 @@ interface PopUpFriendRequestProps {
 interface PopUpAddServerMemberProps {
   closePopUp: () => void;
   serverId: string;
+}
+
+interface PopUpServerMemberActionsProps {
+  member: ServerMember;
+  iconUrl: string | null;
+  closePopUp: () => void;
+  onDelete: () => void;
 }
 
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
@@ -425,6 +432,83 @@ export const PopUpAddServerMember = ({
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+export const PopUpServerMemberActions = ({
+  member,
+  iconUrl,
+  closePopUp,
+  onDelete,
+}: PopUpServerMemberActionsProps) => {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      await deleteServerMember(member.id);
+      onDelete();
+    } catch (error) {
+      console.error("Failed to delete member:", error);
+    }
+  };
+
+  const handleClosePopUp = () => {
+    closePopUp();
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-bold mb-4">Member Details</h2>
+      <div className="flex items-center bg-midnight p-2 w-full rounded text-white space-x-4">
+        <div className="avatar">
+          <div className="w-7 rounded-full">
+            {iconUrl ? (
+              <img src={iconUrl} alt={`${member.user.username}'s icon`} />
+            ) : (
+              <div className="skeleton w-7 shrink-0 rounded-full" />
+            )}
+          </div>
+        </div>
+        <div className="flex-1">
+          <span className="font-bold">{member.user.username}</span>
+        </div>
+      </div>
+      <div className="flex flex-col space-y-2">
+        {confirmDelete ? (
+          <div className="flex flex-col space-y-2">
+            <p className="text-sm text-red-400">
+              Are you sure you want to remove {member.user.username}?
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button className="btn btn-sm btn-error" onClick={handleDelete}>
+                Confirm
+              </button>
+              <button
+                className="btn btn-sm btn-outline"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-end space-x-2">
+            <button
+              className="btn btn-sm btn-error"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Remove Member
+            </button>
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={handleClosePopUp}
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

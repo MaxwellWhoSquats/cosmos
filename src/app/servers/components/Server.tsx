@@ -3,8 +3,14 @@ import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticated
 import gsap from "gsap";
 import dynamic from "next/dynamic";
 import React, { useEffect, useRef, useState } from "react";
-import { getServerInfo } from "../services/serverServices";
-import { PopUpAddServerMember } from "@/src/components/PopUps";
+import {
+  downloadServerMemberIcons,
+  getServerInfo,
+} from "../services/serverServices";
+import {
+  PopUpAddServerMember,
+  PopUpServerMemberActions,
+} from "@/src/components/PopUps";
 
 const VideoCallingClient = dynamic(() => import("./VideoCallingClient"), {
   ssr: false,
@@ -16,15 +22,20 @@ interface ServerProps {
 
 const Server = ({ serverId }: ServerProps) => {
   const { dbUser: user } = useAmplifyAuthenticatedUser();
-
   const [serverName, setServerName] = useState<string | null>(null);
-  const [serverMembers, setServerMembers] = useState<ServerMember[]>();
-  const [channels, setChannels] = useState<Channel[]>();
+  const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [memberIcons, setMemberIcons] = useState<MemberIcon[]>([]);
+  const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
+    useState(false);
+  const [selectedMember, setSelectedMember] = useState<ServerMember | null>(
+    null
+  );
 
   const serverContentRef = useRef<HTMLDivElement | null>(null);
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
-  const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
-    useState<boolean>(false);
+  const memberActionsPopUpRef = useRef<HTMLDivElement | null>(null);
+  const userIcon = memberIcons.find((icon) => icon.id === user?.id)?.icon;
 
   useEffect(() => {
     const fetchServerInfo = async () => {
@@ -34,9 +45,10 @@ const Server = ({ serverId }: ServerProps) => {
         setServerName(serverName);
         setServerMembers(serverMembers);
         setChannels(serverChannels);
+        const icons = await downloadServerMemberIcons(serverId);
+        setMemberIcons(icons);
       }
     };
-
     fetchServerInfo();
   }, [serverId]);
 
@@ -50,9 +62,8 @@ const Server = ({ serverId }: ServerProps) => {
     }
   }, [serverName]);
 
-  // Add server member popup open animation
   useEffect(() => {
-    if (showAddServerMemberPopUp && addServerMemberPopUpRef) {
+    if (showAddServerMemberPopUp && addServerMemberPopUpRef.current) {
       gsap.fromTo(
         addServerMemberPopUpRef.current,
         { scale: 0.95, opacity: 0 },
@@ -61,7 +72,16 @@ const Server = ({ serverId }: ServerProps) => {
     }
   }, [showAddServerMemberPopUp]);
 
-  // Add server member popup close animation
+  useEffect(() => {
+    if (selectedMember && memberActionsPopUpRef.current) {
+      gsap.fromTo(
+        memberActionsPopUpRef.current,
+        { scale: 0.95, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" }
+      );
+    }
+  }, [selectedMember]);
+
   const closeAddServerMemberPopUp = () => {
     if (addServerMemberPopUpRef.current) {
       gsap.to(addServerMemberPopUpRef.current, {
@@ -74,6 +94,18 @@ const Server = ({ serverId }: ServerProps) => {
     }
   };
 
+  const closeMemberActionsPopUp = () => {
+    if (memberActionsPopUpRef.current) {
+      gsap.to(memberActionsPopUpRef.current, {
+        scale: 0.95,
+        opacity: 0,
+        duration: 0.2,
+        ease: "power2.in",
+        onComplete: () => setSelectedMember(null),
+      });
+    }
+  };
+
   return (
     <div
       ref={serverContentRef}
@@ -82,62 +114,72 @@ const Server = ({ serverId }: ServerProps) => {
     >
       {/* Left Sidebar */}
       <aside className="flex-[1] flex flex-col bg-base-300">
-        {/* Server Name */}
         <div className="flex-1 px-6 space-x-4 flex items-center border-b border-gray-700 bg-midnight">
-          <h2 className="text-2xl font-bold text-white">{serverName}</h2>
-          <button
-            className="btn btn-sm btn-accent"
-            onClick={() => setShowAddServerMemberPopUp(true)}
-          >
-            Add Member
-          </button>
+          <h2 className="text-2xl font-bold text-white overflow-hidden">
+            {serverName}
+          </h2>
         </div>
-        {/* Channel List */}
         <div className="flex-7 p-6 space-y-4">
-          <section className="">
+          <section>
             <h3 className="mb-2 text-xs font-semibold text-gray-400 uppercase">
               Text Channels
             </h3>
             <ul className="space-y-2">
-              <li className="hover:bg-gray-700 rounded cursor-pointer text-gray-300">
-                # general
-              </li>
-              <li className="hover:bg-gray-700 rounded cursor-pointer text-gray-300">
-                # announcements
-              </li>
-              <li className="hover:bg-gray-700 rounded cursor-pointer text-gray-300">
-                # random
-              </li>
+              {["general", "announcements", "random"].map((channel) => (
+                <li
+                  key={channel}
+                  className="hover:bg-gray-700 rounded cursor-pointer text-gray-300 p-2"
+                >
+                  # {channel}
+                </li>
+              ))}
             </ul>
           </section>
-          <section className="">
+          <section>
             <h3 className="mb-2 text-xs font-semibold text-gray-400 uppercase">
               Voice Channels
             </h3>
             <ul className="space-y-2">
-              <li className="hover:bg-gray-700 rounded cursor-pointer text-gray-300">
-                🔊 General Voice
-              </li>
-              <li className="hover:bg-gray-700 rounded cursor-pointer text-gray-300">
-                🔊 Gaming
-              </li>
+              {["General Voice", "Gaming"].map((channel) => (
+                <li
+                  key={channel}
+                  className="hover:bg-gray-700 rounded cursor-pointer text-gray-300 p-2"
+                >
+                  🔊 {channel}
+                </li>
+              ))}
             </ul>
           </section>
         </div>
-        {/* User Info */}
         <div className="flex-1 px-6 border-t border-gray-700 flex items-center space-x-2 bg-midnight">
-          <div className="w-8 h-8 bg-gray-600 rounded-full"></div>
+          <div className="w-8 h-8 rounded-full overflow-hidden">
+            {userIcon ? (
+              <img
+                src={userIcon}
+                alt={`${user?.username}'s icon`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-600 rounded-full" />
+            )}
+          </div>
           <div>
             <p className="text-sm font-semibold">{user?.username || "User"}</p>
           </div>
         </div>
       </aside>
       {/* Main Content */}
-      <main className="flex-[4] bg-midnight border-l border-r border-gray-700 relative"></main>
+      <main className="flex-[4] bg-midnight border-l border-r border-gray-700" />
       {/* Right Sidebar: Server Members */}
       <aside className="flex-[1] flex flex-col bg-base-300">
-        <div className="flex justify-center px-6 py-4 border-b border-gray-700 bg-midnight">
+        <div className="flex justify-center items-center px-6 py-4 space-x-2 border-b border-gray-700 bg-midnight">
           <h3 className="text-lg font-bold text-white">Server Members</h3>
+          <button
+            className="btn btn-xs btn-primary"
+            onClick={() => setShowAddServerMemberPopUp(true)}
+          >
+            +
+          </button>
         </div>
         <div className="flex-1 p-6 space-y-4">
           <section>
@@ -146,11 +188,31 @@ const Server = ({ serverId }: ServerProps) => {
             </h4>
             <ul className="space-y-2">
               {serverMembers && serverMembers.length > 0 ? (
-                serverMembers.map((member) => (
-                  <li key={member.id} className="text-gray-300">
-                    {member.user.username}
-                  </li>
-                ))
+                serverMembers.map((member) => {
+                  const memberIcon = memberIcons.find(
+                    (icon) => icon.id === member.user.id
+                  )?.icon;
+                  return (
+                    <li
+                      key={member.id}
+                      className="flex items-center space-x-2 p-1 text-gray-300 cursor-pointer hover:scale-105 hover:outline outline-purple-300 rounded-xl"
+                      onClick={() => setSelectedMember(member)}
+                    >
+                      <div className="w-6 h-6 rounded-full overflow-hidden">
+                        {memberIcon ? (
+                          <img
+                            src={memberIcon}
+                            alt={`${member.user.username}'s icon`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full skeleton rounded-full" />
+                        )}
+                      </div>
+                      <span>{member.user.username}</span>
+                    </li>
+                  );
+                })
               ) : (
                 <li className="text-gray-400">No members found</li>
               )}
@@ -158,7 +220,7 @@ const Server = ({ serverId }: ServerProps) => {
           </section>
         </div>
       </aside>
-      {/* Popup */}
+      {/* Popups */}
       {showAddServerMemberPopUp && (
         <div
           ref={addServerMemberPopUpRef}
@@ -167,6 +229,27 @@ const Server = ({ serverId }: ServerProps) => {
           <PopUpAddServerMember
             closePopUp={closeAddServerMemberPopUp}
             serverId={serverId}
+          />
+        </div>
+      )}
+      {selectedMember && (
+        <div
+          ref={memberActionsPopUpRef}
+          className="fixed z-50 bg-base-200 p-6 rounded-xl shadow-xl w-[90%] max-w-md top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+        >
+          <PopUpServerMemberActions
+            member={selectedMember}
+            iconUrl={
+              memberIcons.find((icon) => icon.id === selectedMember.user.id)
+                ?.icon || null
+            }
+            closePopUp={closeMemberActionsPopUp}
+            onDelete={() => {
+              setServerMembers((prev) =>
+                prev.filter((m) => m.id !== selectedMember.id)
+              );
+              closeMemberActionsPopUp();
+            }}
           />
         </div>
       )}

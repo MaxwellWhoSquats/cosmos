@@ -28,3 +28,8 @@ interface Media {
   userId: string;
   channelId: string;
 }
+
+interface MemberIcon {
+  id: string;
+  icon: string | null;
+}
