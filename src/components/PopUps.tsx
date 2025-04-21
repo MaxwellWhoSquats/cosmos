@@ -35,6 +35,12 @@ interface PopUpServerMemberActionsProps {
   onDelete: () => void;
 }
 
+interface PopUpAddChannelProps {
+  serverId: string;
+  closePopUp: () => void;
+  onAdd: (newChannel: Channel) => void;
+}
+
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [friendUsername, setFriendUsername] = useState("");
@@ -577,6 +583,108 @@ export const PopUpServerMemberActions = ({
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+export const PopUpAddChannel = ({
+  serverId,
+  closePopUp,
+  onAdd,
+}: PopUpAddChannelProps) => {
+  const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
+  const [channelName, setChannelName] = useState("");
+  const [channelType, setChannelType] = useState<"TEXT" | "VOICE">("TEXT");
+  const [error, setError] = useState("");
+
+  const handleClosePopUp = () => {
+    closePopUp();
+  };
+
+  const addChannel = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      console.error("No user authenticated");
+      setError("User not authenticated");
+      return;
+    }
+
+    if (!channelName.trim()) {
+      setError("Channel name is required");
+      return;
+    }
+
+    try {
+      // Create the channel
+      const { data: newChannel, errors: channelErrors } =
+        await client.models.Channel.create({
+          name: channelName.trim(),
+          type: channelType,
+          serverId,
+        });
+
+      if (channelErrors) {
+        console.error("Error creating channel:", channelErrors);
+        setError("Failed to create channel");
+        return;
+      }
+
+      if (newChannel) {
+        const channel: Channel = {
+          id: newChannel.id,
+          serverId,
+          name: newChannel.name,
+          type: newChannel.type as "TEXT" | "VOICE",
+        };
+        onAdd(channel);
+        setChannelName("");
+        setChannelType("TEXT");
+        closePopUp();
+      }
+    } catch (error) {
+      console.error("Unknown error creating channel:", error);
+      setError("An unexpected error occurred");
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-bold mb-4">Create Channel</h2>
+      <form onSubmit={addChannel}>
+        <input
+          type="text"
+          placeholder="Channel Name"
+          className="input input-bordered w-full mb-4"
+          value={channelName}
+          onChange={(e) => setChannelName(e.target.value)}
+        />
+        <select
+          className="select select-bordered w-full mb-4"
+          value={channelType}
+          onChange={(e) => setChannelType(e.target.value as "TEXT" | "VOICE")}
+        >
+          <option value="TEXT">Text Channel</option>
+          <option value="VOICE">Voice Channel</option>
+        </select>
+        {error && <p className="font-bold text-red-500 mb-4">{error}</p>}
+        <div className="flex justify-end space-x-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleClosePopUp}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-secondary btn-sm"
+            disabled={loading || !channelName.trim()}
+          >
+            Create Channel
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

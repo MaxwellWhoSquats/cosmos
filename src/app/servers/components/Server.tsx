@@ -10,7 +10,10 @@ import {
 import {
   PopUpAddServerMember,
   PopUpServerMemberActions,
+  PopUpAddChannel,
 } from "@/src/components/PopUps";
+import SettingsIcon from "@/src/components/Icons/SettingsIcon";
+import PlusIcon from "@/src/components/Icons/PlusIcon";
 
 const VideoCallingClient = dynamic(() => import("./VideoCallingClient"), {
   ssr: false,
@@ -28,12 +31,14 @@ const Server = ({ serverId }: ServerProps) => {
   const [memberIcons, setMemberIcons] = useState<MemberIcon[]>([]);
   const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
     useState(false);
+  const [showAddChannelPopUp, setShowAddChannelPopUp] = useState(false);
   const [selectedMember, setSelectedMember] = useState<ServerMember | null>(
     null
   );
 
   const serverContentRef = useRef<HTMLDivElement | null>(null);
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
+  const addChannelPopUpRef = useRef<HTMLDivElement | null>(null);
   const memberActionsPopUpRef = useRef<HTMLDivElement | null>(null);
   const userIcon = memberIcons.find((icon) => icon.id === user?.id)?.icon;
 
@@ -73,6 +78,16 @@ const Server = ({ serverId }: ServerProps) => {
   }, [showAddServerMemberPopUp]);
 
   useEffect(() => {
+    if (showAddChannelPopUp && addChannelPopUpRef.current) {
+      gsap.fromTo(
+        addChannelPopUpRef.current,
+        { scale: 0.95, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.3, ease: "power2.out" }
+      );
+    }
+  }, [showAddChannelPopUp]);
+
+  useEffect(() => {
     if (selectedMember && memberActionsPopUpRef.current) {
       gsap.fromTo(
         memberActionsPopUpRef.current,
@@ -90,6 +105,18 @@ const Server = ({ serverId }: ServerProps) => {
         duration: 0.2,
         ease: "power2.in",
         onComplete: () => setShowAddServerMemberPopUp(false),
+      });
+    }
+  };
+
+  const closeAddChannelPopUp = () => {
+    if (addChannelPopUpRef.current) {
+      gsap.to(addChannelPopUpRef.current, {
+        scale: 0.95,
+        opacity: 0,
+        duration: 0.2,
+        ease: "power2.in",
+        onComplete: () => setShowAddChannelPopUp(false),
       });
     }
   };
@@ -115,6 +142,11 @@ const Server = ({ serverId }: ServerProps) => {
     closeAddServerMemberPopUp();
   };
 
+  const handleAddChannel = (newChannel: Channel) => {
+    setChannels((prev) => [...prev, newChannel]);
+    closeAddChannelPopUp();
+  };
+
   return (
     <div
       ref={serverContentRef}
@@ -123,10 +155,17 @@ const Server = ({ serverId }: ServerProps) => {
     >
       {/* Left Sidebar */}
       <aside className="flex-[1] flex flex-col bg-base-300">
-        <div className="flex-1 px-6 space-x-4 flex items-center border-b border-gray-700 bg-midnight">
-          <h2 className="text-2xl font-bold text-white overflow-hidden">
-            {serverName}
-          </h2>
+        <div className="flex-1 px-6 flex justify-between items-center border-b border-gray-700 bg-midnight">
+          <h2 className="text-xl font-bold text-white">{serverName}</h2>
+          <div
+            className="cursor-pointer hover:scale-125 transition duration-100"
+            onClick={() => setShowAddChannelPopUp(true)}
+          >
+            <PlusIcon />
+          </div>
+          <div className="cursor-pointer hover:scale-125 transition duration-100">
+            <SettingsIcon />
+          </div>
         </div>
         <div className="flex-7 p-6 space-y-4">
           <section>
@@ -134,14 +173,16 @@ const Server = ({ serverId }: ServerProps) => {
               Text Channels
             </h3>
             <ul className="space-y-2">
-              {["general", "announcements", "random"].map((channel) => (
-                <li
-                  key={channel}
-                  className="hover:bg-gray-700 rounded cursor-pointer text-gray-300 p-2"
-                >
-                  # {channel}
-                </li>
-              ))}
+              {channels
+                .filter((channel) => channel.type === "TEXT")
+                .map((channel) => (
+                  <li
+                    key={channel.id}
+                    className="hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1"
+                  >
+                    # {channel.name}
+                  </li>
+                ))}
             </ul>
           </section>
           <section>
@@ -149,14 +190,16 @@ const Server = ({ serverId }: ServerProps) => {
               Voice Channels
             </h3>
             <ul className="space-y-2">
-              {["General Voice", "Gaming"].map((channel) => (
-                <li
-                  key={channel}
-                  className="hover:bg-gray-700 rounded cursor-pointer text-gray-300 p-2"
-                >
-                  🔊 {channel}
-                </li>
-              ))}
+              {channels
+                .filter((channel) => channel.type === "VOICE")
+                .map((channel) => (
+                  <li
+                    key={channel.id}
+                    className="hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1"
+                  >
+                    🔊 {channel.name}
+                  </li>
+                ))}
             </ul>
           </section>
         </div>
@@ -184,7 +227,7 @@ const Server = ({ serverId }: ServerProps) => {
         <div className="flex justify-center items-center px-6 py-4 space-x-2 border-b border-gray-700 bg-midnight">
           <h3 className="text-lg font-bold text-white">Server Members</h3>
           <button
-            className="btn btn-xs btn-primary"
+            className="btn btn-xs btn-dash btn-secondary"
             onClick={() => setShowAddServerMemberPopUp(true)}
           >
             +
@@ -239,6 +282,18 @@ const Server = ({ serverId }: ServerProps) => {
             closePopUp={closeAddServerMemberPopUp}
             serverId={serverId}
             onAdd={handleAddServerMember}
+          />
+        </div>
+      )}
+      {showAddChannelPopUp && (
+        <div
+          ref={addChannelPopUpRef}
+          className="fixed z-50 bg-base-200 p-6 rounded-xl shadow-xl w-[90%] max-w-md top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+        >
+          <PopUpAddChannel
+            serverId={serverId}
+            closePopUp={closeAddChannelPopUp}
+            onAdd={handleAddChannel}
           />
         </div>
       )}
