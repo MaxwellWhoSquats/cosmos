@@ -84,6 +84,38 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
         return;
       }
 
+      // Check if users are already friends
+      const { data: existingFriendship, errors: errorFetchFriendship } =
+        await client.models.Friendship.list({
+          filter: {
+            or: [
+              { userId: { eq: user.id }, friendId: { eq: friendId } },
+              { userId: { eq: friendId }, friendId: { eq: user.id } },
+            ],
+            and: [
+              {
+                or: [
+                  { status: { eq: "ACCEPTED" } },
+                  { status: { eq: "PENDING" } },
+                ],
+              },
+            ],
+          },
+        });
+
+      if (errorFetchFriendship) {
+        console.error(
+          "Error checking existing friendship:",
+          errorFetchFriendship
+        );
+        return;
+      }
+
+      if (existingFriendship && existingFriendship.length > 0) {
+        console.error("You are already friends with this user.");
+        return;
+      }
+
       // Create the friend request
       const { data: friendRequest, errors: errorCreateFriendRequest } =
         await client.models.Friendship.create({
