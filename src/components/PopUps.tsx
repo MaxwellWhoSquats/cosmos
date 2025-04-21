@@ -38,6 +38,7 @@ interface PopUpServerMemberActionsProps {
 export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [friendUsername, setFriendUsername] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleClosePopUp = () => {
     closePopUp();
@@ -66,7 +67,7 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
       }
 
       if (!theFriend || theFriend.length === 0) {
-        console.log("No user by that name!");
+        setMessage("No user by that name!");
         return;
       }
 
@@ -80,7 +81,7 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
 
       // Prevent sending friend request to self
       if (friendId === user.id) {
-        console.error("You cannot send a friend request to yourself.");
+        setMessage("You cannot send a friend request to yourself.");
         return;
       }
 
@@ -112,7 +113,7 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
       }
 
       if (existingFriendship && existingFriendship.length > 0) {
-        console.error("You are already friends with this user.");
+        setMessage("You are already friends with this user.");
         return;
       }
 
@@ -157,6 +158,7 @@ export const PopUpAddFriend = ({ closePopUp }: PopUpAddFriendProps) => {
             setFriendUsername(e.target.value);
           }}
         />
+        {message && <p className="font-bold text-red-500 mb-4">{message}</p>}
         <div className="flex justify-end space-x-2">
           <button
             type="button"
@@ -252,6 +254,7 @@ export const PopUpFriendRequest = ({
       setFriendRequestSenderDataState((prevData) =>
         prevData.filter((request) => request.requestId !== requestId)
       );
+      window.location.reload();
     } catch (error) {
       console.error("Unknown Error: " + error);
     }

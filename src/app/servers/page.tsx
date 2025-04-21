@@ -67,6 +67,7 @@ export default function ServersPage() {
       if (errorGetAllServers) {
         console.error("Errors fetching servers: ", errorGetAllServers);
       }
+      console.log(serversWithUser);
 
       const serverIds = serversWithUser.map((record) => record.serverId);
 

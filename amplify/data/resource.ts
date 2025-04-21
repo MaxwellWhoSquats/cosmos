@@ -108,7 +108,7 @@ const schema = a.schema({
       server: a.belongsTo('Server', 'serverId'),
     })
     .authorization((allow) => [
-      allow.owner(),
+      allow.authenticated(),
     ]),
 
   Message: a
