@@ -3,10 +3,7 @@ import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticated
 import gsap from "gsap";
 import dynamic from "next/dynamic";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  downloadServerMemberIcons,
-  getServerInfo,
-} from "../services/serverServices";
+import { getServerInfo } from "../services/serverServices";
 import {
   PopUpAddServerMember,
   PopUpServerMemberActions,
@@ -29,7 +26,6 @@ const Server = ({ serverId }: ServerProps) => {
   const [serverName, setServerName] = useState<string | null>(null);
   const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [memberIcons, setMemberIcons] = useState<MemberIcon[]>([]);
   const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
     useState(false);
   const [showAddChannelPopUp, setShowAddChannelPopUp] = useState(false);
@@ -44,7 +40,8 @@ const Server = ({ serverId }: ServerProps) => {
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
   const addChannelPopUpRef = useRef<HTMLDivElement | null>(null);
   const memberActionsPopUpRef = useRef<HTMLDivElement | null>(null);
-  const userIcon = memberIcons.find((icon) => icon.id === user?.id)?.icon;
+  const userIcon = serverMembers.find((member) => member.id === user?.id)?.user
+    .icon;
 
   useEffect(() => {
     const fetchServerInfo = async () => {
@@ -55,8 +52,6 @@ const Server = ({ serverId }: ServerProps) => {
           setServerName(serverName || "Unknown Server");
           setServerMembers(serverMembers);
           setChannels(serverChannels);
-          const icons = await downloadServerMemberIcons(serverId);
-          setMemberIcons(icons);
         } catch (error) {
           console.error("Error fetching server info:", error);
         }
@@ -141,12 +136,8 @@ const Server = ({ serverId }: ServerProps) => {
     }
   };
 
-  const handleAddServerMember = (
-    newMember: ServerMember,
-    newIcon: MemberIcon
-  ) => {
+  const handleAddServerMember = (newMember: ServerMember) => {
     setServerMembers((prev) => [...prev, newMember]);
-    setMemberIcons((prev) => [...prev, newIcon]);
     closeAddServerMemberPopUp();
   };
 
@@ -266,9 +257,6 @@ const Server = ({ serverId }: ServerProps) => {
             <ul className="space-y-2">
               {serverMembers && serverMembers.length > 0 ? (
                 serverMembers.map((member) => {
-                  const memberIcon = memberIcons.find(
-                    (icon) => icon.id === member.user.id
-                  )?.icon;
                   return (
                     <li
                       key={member.id}
@@ -276,9 +264,9 @@ const Server = ({ serverId }: ServerProps) => {
                       onClick={() => setSelectedMember(member)}
                     >
                       <div className="w-6 h-6 rounded-full overflow-hidden">
-                        {memberIcon ? (
+                        {member.user.icon ? (
                           <img
-                            src={memberIcon}
+                            src={member.user.icon}
                             alt={`${member.user.username}'s icon`}
                             className="w-full h-full object-cover"
                           />
@@ -334,10 +322,6 @@ const Server = ({ serverId }: ServerProps) => {
         >
           <PopUpServerMemberActions
             member={selectedMember}
-            iconUrl={
-              memberIcons.find((icon) => icon.id === selectedMember.user.id)
-                ?.icon || null
-            }
             closePopUp={closeMemberActionsPopUp}
             onDelete={() => {
               setServerMembers((prev) =>

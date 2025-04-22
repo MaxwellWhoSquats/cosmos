@@ -27,12 +27,11 @@ interface PopUpFriendRequestProps {
 interface PopUpAddServerMemberProps {
   closePopUp: () => void;
   serverId: string;
-  onAdd: (newMember: ServerMember, newIcon: MemberIcon) => void;
+  onAdd: (newMember: ServerMember) => void;
 }
 
 interface PopUpServerMemberActionsProps {
   member: ServerMember;
-  iconUrl: string | null;
   closePopUp: () => void;
   onDelete: () => void;
 }
@@ -553,33 +552,29 @@ export const PopUpAddServerMember = ({
           `Successfully created new server member: ${theServerMember.userId}`
         );
         // Fetch the icon for the new member
-        let icon: string = "";
+        let theIcon = null;
         if (friend.icon) {
           try {
             const { body } = await downloadData({ path: friend.icon }).result;
-            icon = URL.createObjectURL(await body.blob());
+            theIcon = URL.createObjectURL(await body.blob());
           } catch (error) {
             console.error("Failed to download icon:", error);
           }
         }
         // Construct the ServerMember object
-        if (friend && friend.username && icon) {
+        if (friend && friend.username && theIcon) {
           const newMember: ServerMember = {
             id: theServerMember.id,
             serverId: serverId,
             user: {
               id: friend.id,
               username: friend.username,
-              icon: icon,
+              icon: theIcon,
             },
             role: "MEMBER",
           };
-          const newIcon: MemberIcon = {
-            id: friend.id,
-            icon,
-          };
           // Call onAdd to update parent state
-          onAdd(newMember, newIcon);
+          onAdd(newMember);
           setUsername("");
         } else {
           console.log("Skipping onAdd due to missing username or icon");
@@ -624,7 +619,6 @@ export const PopUpAddServerMember = ({
 
 export const PopUpServerMemberActions = ({
   member,
-  iconUrl,
   closePopUp,
   onDelete,
 }: PopUpServerMemberActionsProps) => {
@@ -652,8 +646,11 @@ export const PopUpServerMemberActions = ({
       <div className="flex items-center bg-midnight p-2 w-full rounded text-white space-x-4">
         <div className="avatar">
           <div className="w-7 rounded-full">
-            {iconUrl ? (
-              <img src={iconUrl} alt={`${member.user.username}'s icon`} />
+            {member.user.icon ? (
+              <img
+                src={member.user.icon}
+                alt={`${member.user.username}'s icon`}
+              />
             ) : (
               <div className="skeleton w-7 shrink-0 rounded-full" />
             )}

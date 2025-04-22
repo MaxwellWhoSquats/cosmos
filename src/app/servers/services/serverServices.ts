@@ -79,13 +79,24 @@ export const getServerInfo = async (serverId: string) => {
           }
 
           if (serverMemberUserData) {
+            let theIcon = null;
+            if (serverMemberUserData.icon) {
+              try {
+                const { body } = await downloadData({ path: serverMemberUserData.icon})
+                  .result;
+                theIcon = URL.createObjectURL(await body.blob());
+              } catch (error) {
+                console.error("Failed to download icon:", error);
+              }
+            }
+
             return {
               id: member.id,
               serverId: member.serverId,
               user: {
                 id: serverMemberUserData.id,
                 username: serverMemberUserData.username,
-                icon: serverMemberUserData.icon,
+                icon: theIcon,
               },
               role: member.role,
             };
@@ -103,30 +114,6 @@ export const getServerInfo = async (serverId: string) => {
   }
 
   return { serverName, serverMembers, serverChannels };
-};
-
-export const downloadServerMemberIcons = async (serverId: string) => {
-  const { serverMembers } = await getServerInfo(serverId);
-  const members: { id: string; icon: string }[] = [];
-
-  for (let member of serverMembers) {
-    let icon = null;
-    if (member.user.icon) {
-      try {
-        const { body } = await downloadData({ path: member.user.icon })
-          .result;
-        icon = URL.createObjectURL(await body.blob());
-      } catch (error) {
-        console.error("Failed to download icon:", error);
-      }
-    }
-    members.push({
-      id: member.user.id,
-      icon: icon!
-    });
-  }
-  
-  return members;
 };
 
 export const deleteServerMember = async (memberId: string) => {
@@ -159,11 +146,8 @@ export const deleteServerMember = async (memberId: string) => {
     if (!data) {
       throw new Error("Server member not found");
     }
-    
-    console.log(`Successfully deleted server member: ${memberId}`);
-    return true; // Indicate success
+    return true;
   } catch (error) {
     console.error("Error deleting server member:", error);
-    throw error; // Re-throw to let the caller handle it
   }
 };
