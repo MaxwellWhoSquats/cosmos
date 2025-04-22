@@ -12,6 +12,7 @@ import {
 import SettingsIcon from "@/src/components/Icons/SettingsIcon";
 import PlusIcon from "@/src/components/Icons/PlusIcon";
 import CrownIcon from "@/src/components/Icons/CrownIcon";
+import { getUserIcon } from "@/src/utils/getUserIcon";
 
 const VideoCallingClient = dynamic(() => import("./VideoCallingClient"), {
   ssr: false,
@@ -22,12 +23,13 @@ interface ServerProps {
 }
 
 const Server = ({ serverId }: ServerProps) => {
-  const { dbUser: user } = useAmplifyAuthenticatedUser();
+  const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [serverName, setServerName] = useState<string | null>(null);
   const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
     useState(false);
+  const [userIcon, setUserIcon] = useState<string | null>(null);
   const [showAddChannelPopUp, setShowAddChannelPopUp] = useState(false);
   const [selectedMember, setSelectedMember] = useState<ServerMember | null>(
     null
@@ -40,25 +42,30 @@ const Server = ({ serverId }: ServerProps) => {
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
   const addChannelPopUpRef = useRef<HTMLDivElement | null>(null);
   const memberActionsPopUpRef = useRef<HTMLDivElement | null>(null);
-  const userIcon = serverMembers.find((member) => member.id === user?.id)?.user
-    .icon;
 
   useEffect(() => {
     const fetchServerInfo = async () => {
-      if (serverId) {
-        try {
-          const { serverName, serverMembers, serverChannels } =
-            await getServerInfo(serverId);
-          setServerName(serverName || "Unknown Server");
-          setServerMembers(serverMembers);
-          setChannels(serverChannels);
-        } catch (error) {
-          console.error("Error fetching server info:", error);
+      if (!serverId || loading) {
+        return;
+      }
+
+      try {
+        const { serverName, serverMembers, serverChannels } =
+          await getServerInfo(serverId);
+        setServerName(serverName || "Unknown Server");
+        setServerMembers(serverMembers);
+        setChannels(serverChannels);
+        if (user?.icon) {
+          const theUserIcon = await getUserIcon(user.icon);
+          setUserIcon(theUserIcon);
         }
+      } catch (error) {
+        console.error("Error fetching server info:", error);
       }
     };
+
     fetchServerInfo();
-  }, [serverId]);
+  }, [serverId, user, loading]);
 
   useEffect(() => {
     if (serverName && serverContentRef.current) {
@@ -149,6 +156,10 @@ const Server = ({ serverId }: ServerProps) => {
   const handleJoinVoiceChannel = (channelName: string) => {
     setSelectedVoiceChannel(channelName);
   };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div
