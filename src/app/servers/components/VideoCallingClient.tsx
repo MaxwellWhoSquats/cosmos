@@ -14,15 +14,26 @@ import AgoraRTC from "agora-rtc-react";
 import { useState, useEffect } from "react";
 import MicrophoneIcon from "@/src/components/Icons/MicrophoneIcon";
 import CameraIcon from "@/src/components/Icons/CameraIcon";
+import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
+import { client } from "@/src/utils/amplifyClient";
 
 interface VideoCallProps {
   appId: string;
   channel: string;
   token: string;
+  uid: string;
   onDisconnect: () => void;
 }
 
-const VideoCall = ({ appId, channel, token, onDisconnect }: VideoCallProps) => {
+// View Agora Video SDK Documentation for component functionality ///
+
+const VideoCall = ({
+  appId,
+  channel,
+  token,
+  uid,
+  onDisconnect,
+}: VideoCallProps) => {
   const [micOn, setMic] = useState(false);
   const [cameraOn, setCamera] = useState(false);
   const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
@@ -30,7 +41,7 @@ const VideoCall = ({ appId, channel, token, onDisconnect }: VideoCallProps) => {
   const isConnected = useIsConnected();
   const remoteUsers = useRemoteUsers();
 
-  useJoin({ appid: appId, channel, token: token || null }, true);
+  useJoin({ appid: appId, channel, token, uid }, true);
   usePublish([localMicrophoneTrack, localCameraTrack]);
 
   useEffect(() => {
@@ -119,65 +130,129 @@ const VideoCall = ({ appId, channel, token, onDisconnect }: VideoCallProps) => {
   );
 };
 
-const VideoCallingClient = () => {
-  const [client, setClient] = useState<any>(null);
+interface VideoCallingClientProps {
+  initialChannel?: string;
+}
+
+const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
+  const { dbUser: user } = useAmplifyAuthenticatedUser();
+  const [agoraClient, setAgoraClient] = useState<any>(null);
   const [calling, setCalling] = useState(false);
-  // const appId = process.env.NEXT_PUBLIC_APP_ID || "";
-  const [appId, setAppId] = useState<string>("");
-  const [token, setToken] = useState<string>("");
-  const channel = "Test";
-  // const token = process.env.NEXT_PUBLIC_TEMP_TOKEN || "";
+  const [tokenData, setTokenData] = useState<{
+    appId: string;
+    token: string;
+    channelName: string;
+    uid: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (calling && !client) {
+    if (calling && !agoraClient) {
       const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-      setClient(agoraClient);
+      setAgoraClient(agoraClient);
     }
-  }, [calling, client]);
+  }, [calling, agoraClient]);
+
+  const fetchToken = async (channelName: string) => {
+    if (!user) {
+      setError("You must be signed in to join a channel");
+      return;
+    }
+
+    if (!channelName) {
+      setError(" Invalid channel name.");
+      return;
+    }
+
+    try {
+      setError(null);
+      const uid = user?.id;
+
+      // Call the Lambda function to generate a token neccessary for a user to join the video call,
+      // with it's (NAME => Agora concept) being the name of the (channel => my concept).
+      const { data, errors } = await client.queries.videoCall({
+        name: channelName,
+      });
+
+      if (errors) {
+        throw new Error(
+          `GraphQL errors: ${errors.map((e: any) => e.message).join(", ")}`
+        );
+      }
+
+      if (!data) {
+        throw new Error("No token returned from videoCall query");
+      }
+
+      const parsed = JSON.parse(data);
+      if (!parsed.token || !parsed.appId) {
+        throw new Error("Invalid token data: missing token or appId");
+      }
+
+      // Set local data using Lambda-generated token to connect to Agora
+      setTokenData({
+        token: parsed.token,
+        appId: parsed.appId,
+        channelName,
+        uid,
+      });
+      setCalling(true);
+    } catch (error) {
+      setError(
+        `Failed to join channel: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  };
+
+  const handleJoinChannel = () => {
+    if (!initialChannel) {
+      setError("Please enter a channel name");
+      return;
+    }
+    fetchToken(initialChannel);
+  };
 
   const handleDisconnect = () => {
-    if (client) {
-      client.leave().catch(console.error);
-      client.removeAllListeners();
+    if (agoraClient) {
+      agoraClient.leave().catch(console.error);
+      agoraClient.removeAllListeners();
     }
     setCalling(false);
-    setClient(null);
+    setAgoraClient(null);
+    setTokenData(null);
+    setError(null);
   };
 
   return (
-    <div className="h-full">
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Enter App ID"
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-          className="p-2 border border-gray-300 rounded"
-        />
-      </div>
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Enter Token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          className="p-2 border border-gray-300 rounded"
-        />
-      </div>
-
+    <div className="h-full flex justify-center items-center">
+      {error && (
+        <div className="p-4 bg-error-content text-white rounded mb-4">
+          {error}
+        </div>
+      )}
       {!calling ? (
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          onClick={() => setCalling(true)}
-        >
-          Start Call
-        </button>
-      ) : client ? (
-        <AgoraRTCProvider client={client}>
+        <main className="flex flex-col items-center">
+          <div
+            id="channelName"
+            className="px-5 py-2 font-bold border border-gray-300 rounded text-center"
+          >
+            {initialChannel}
+          </div>
+          <button
+            className="btn btn-soft btn-primary mt-4"
+            onClick={handleJoinChannel}
+            disabled={!initialChannel}
+          >
+            Join Channel
+          </button>
+        </main>
+      ) : agoraClient && tokenData ? (
+        <AgoraRTCProvider client={agoraClient}>
           <VideoCall
-            appId={appId}
-            channel={channel}
-            token={token}
+            appId={tokenData.appId}
+            channel={tokenData.channelName}
+            token={tokenData.token}
+            uid={tokenData.uid}
             onDisconnect={handleDisconnect}
           />
         </AgoraRTCProvider>

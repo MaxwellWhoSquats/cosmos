@@ -1,4 +1,5 @@
 import { a, defineData, type ClientSchema } from '@aws-amplify/backend';
+import { videoCall } from '../functions/videoCall/resource';
 
 const schema = a.schema({
   User: a
@@ -139,6 +140,14 @@ const schema = a.schema({
       allow.owner(),
       allow.authenticated().to(['read']),
     ]),
+    videoCall: a
+    .query()
+    .arguments({
+      name: a.string(),
+    })
+    .returns(a.string())
+    .authorization(allow => [allow.authenticated()])
+    .handler(a.handler.function(videoCall)),
 });
 
 export type Schema = ClientSchema<typeof schema>;

@@ -35,6 +35,9 @@ const Server = ({ serverId }: ServerProps) => {
   const [selectedMember, setSelectedMember] = useState<ServerMember | null>(
     null
   );
+  const [selectedVoiceChannel, setSelectedVoiceChannel] = useState<
+    string | null
+  >(null);
 
   const serverContentRef = useRef<HTMLDivElement | null>(null);
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
@@ -45,13 +48,17 @@ const Server = ({ serverId }: ServerProps) => {
   useEffect(() => {
     const fetchServerInfo = async () => {
       if (serverId) {
-        const { serverName, serverMembers, serverChannels } =
-          await getServerInfo(serverId);
-        setServerName(serverName);
-        setServerMembers(serverMembers);
-        setChannels(serverChannels);
-        const icons = await downloadServerMemberIcons(serverId);
-        setMemberIcons(icons);
+        try {
+          const { serverName, serverMembers, serverChannels } =
+            await getServerInfo(serverId);
+          setServerName(serverName || "Unknown Server");
+          setServerMembers(serverMembers);
+          setChannels(serverChannels);
+          const icons = await downloadServerMemberIcons(serverId);
+          setMemberIcons(icons);
+        } catch (error) {
+          console.error("Error fetching server info:", error);
+        }
       }
     };
     fetchServerInfo();
@@ -147,6 +154,10 @@ const Server = ({ serverId }: ServerProps) => {
     closeAddChannelPopUp();
   };
 
+  const handleJoinVoiceChannel = (channelName: string) => {
+    setSelectedVoiceChannel(channelName);
+  };
+
   return (
     <div
       ref={serverContentRef}
@@ -157,14 +168,16 @@ const Server = ({ serverId }: ServerProps) => {
       <aside className="flex-[1] flex flex-col bg-base-300">
         <div className="flex-1 px-6 flex justify-between items-center border-b border-gray-700 bg-midnight">
           <h2 className="text-xl font-bold text-white">{serverName}</h2>
-          <div
-            className="cursor-pointer hover:scale-125 transition duration-100"
-            onClick={() => setShowAddChannelPopUp(true)}
-          >
-            <PlusIcon />
-          </div>
-          <div className="cursor-pointer hover:scale-125 transition duration-100">
-            <SettingsIcon />
+          <div id="actions" className="flex space-x-2">
+            <div
+              className="cursor-pointer hover:scale-125 transition duration-100"
+              onClick={() => setShowAddChannelPopUp(true)}
+            >
+              <PlusIcon />
+            </div>
+            <div className="cursor-pointer hover:scale-125 transition duration-100">
+              <SettingsIcon />
+            </div>
           </div>
         </div>
         <div className="flex-7 p-6 space-y-4">
@@ -195,7 +208,10 @@ const Server = ({ serverId }: ServerProps) => {
                 .map((channel) => (
                   <li
                     key={channel.id}
-                    className="hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1"
+                    className={`hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1 ${
+                      selectedVoiceChannel === channel.name ? "bg-gray-800" : ""
+                    }`}
+                    onClick={() => handleJoinVoiceChannel(channel.name)}
                   >
                     🔊 {channel.name}
                   </li>
@@ -221,7 +237,15 @@ const Server = ({ serverId }: ServerProps) => {
         </div>
       </aside>
       {/* Main Content */}
-      <main className="flex-[4] bg-midnight border-l border-r border-gray-700" />
+      <main className="flex-[4] bg-midnight border-l border-r border-gray-700">
+        {selectedVoiceChannel ? (
+          <VideoCallingClient initialChannel={selectedVoiceChannel} />
+        ) : (
+          <div className="p-4 text-gray-300">
+            Select a voice channel to join
+          </div>
+        )}
+      </main>
       {/* Right Sidebar: Server Members */}
       <aside className="flex-[1] flex flex-col bg-base-300">
         <div className="flex justify-center items-center px-6 py-4 space-x-2 border-b border-gray-700 bg-midnight">
