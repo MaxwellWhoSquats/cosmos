@@ -107,6 +107,7 @@ const schema = a.schema({
       user: a.belongsTo('User', 'userId'),
       serverId: a.id().required(),
       server: a.belongsTo('Server', 'serverId'),
+      role: a.enum(['CREATOR', 'ADMIN', 'MEMBER']),
     })
     .authorization((allow) => [
       allow.authenticated(),

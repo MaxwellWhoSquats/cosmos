@@ -6,6 +6,7 @@ interface ServerMember {
     username: string;
     icon: string;
   };
+  role: "CREATOR" | "ADMIN" | "MEMBER";
 }
   
 interface Channel {

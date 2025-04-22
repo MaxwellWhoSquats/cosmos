@@ -1,12 +1,11 @@
 "use client";
-import dynamic from "next/dynamic";
 import { useAmplifyAuthenticatedUser } from "@/src/hooks/useAmplifyAuthenticatedUser";
 import { client } from "@/src/utils/amplifyClient";
 import { useState, useRef, useEffect } from "react";
 import gsap from "gsap";
-import CreateServerPopUp from "./components/CreateServerPopUp";
 import { downloadData } from "aws-amplify/storage";
 import Server from "./components/Server";
+import { PopUpCreateServer } from "@/src/components/PopUps";
 
 export default function ServersPage() {
   const { dbUser: user } = useAmplifyAuthenticatedUser();
@@ -15,6 +14,9 @@ export default function ServersPage() {
   const [showPopUp, setShowPopUp] = useState(false);
   const popUpRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+
+  // make default text and video channels upon server creation.
+  // chat servers using agora
 
   useEffect(() => {
     if (user) {
@@ -67,7 +69,6 @@ export default function ServersPage() {
       if (errorGetAllServers) {
         console.error("Errors fetching servers: ", errorGetAllServers);
       }
-      console.log(serversWithUser);
 
       const serverIds = serversWithUser.map((record) => record.serverId);
 
@@ -165,7 +166,7 @@ export default function ServersPage() {
             ref={popUpRef}
             className="fixed z-50 bg-base-200 p-6 rounded-xl shadow-xl w-[90%] max-w-md top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           >
-            <CreateServerPopUp
+            <PopUpCreateServer
               closePopUp={closePopUp}
               onServerCreated={getAllServerInfos}
             />

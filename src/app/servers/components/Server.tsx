@@ -14,6 +14,7 @@ import {
 } from "@/src/components/PopUps";
 import SettingsIcon from "@/src/components/Icons/SettingsIcon";
 import PlusIcon from "@/src/components/Icons/PlusIcon";
+import CrownIcon from "@/src/components/Icons/CrownIcon";
 
 const VideoCallingClient = dynamic(() => import("./VideoCallingClient"), {
   ssr: false,
@@ -167,7 +168,7 @@ const Server = ({ serverId }: ServerProps) => {
       {/* Left Sidebar */}
       <aside className="flex-[1] flex flex-col bg-base-300">
         <div className="flex-1 px-6 flex justify-between items-center border-b border-gray-700 bg-midnight">
-          <h2 className="text-xl font-bold text-white">{serverName}</h2>
+          <h2 className="text-xl font-bold text-white">{`// ${serverName}`}</h2>
           <div id="actions" className="flex space-x-2">
             <div
               className="cursor-pointer hover:scale-125 transition duration-100"
@@ -237,7 +238,7 @@ const Server = ({ serverId }: ServerProps) => {
         </div>
       </aside>
       {/* Main Content */}
-      <main className="flex-[4] bg-midnight border-l border-r border-gray-700">
+      <main className="flex-[3] bg-midnight border-l border-r border-gray-700">
         {selectedVoiceChannel ? (
           <VideoCallingClient initialChannel={selectedVoiceChannel} />
         ) : (
@@ -286,6 +287,11 @@ const Server = ({ serverId }: ServerProps) => {
                         )}
                       </div>
                       <span>{member.user.username}</span>
+                      {member.role === "CREATOR" && (
+                        <span className="p-0.5 rounded bg-yellow-300/80">
+                          <CrownIcon />
+                        </span>
+                      )}
                     </li>
                   );
                 })

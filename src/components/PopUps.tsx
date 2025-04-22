@@ -4,6 +4,8 @@ import { client } from "@/src/utils/amplifyClient";
 import React, { useState } from "react";
 import { deleteServerMember } from "../app/servers/services/serverServices";
 import { downloadData } from "aws-amplify/storage";
+import { FileUploader } from "@aws-amplify/ui-react-storage";
+import "@aws-amplify/ui-react/styles.css";
 
 export interface FriendRelevantData {
   requestId: string | null; // friend request Id
@@ -33,6 +35,11 @@ interface PopUpServerMemberActionsProps {
   iconUrl: string | null;
   closePopUp: () => void;
   onDelete: () => void;
+}
+
+interface PopUpCreateServerProps {
+  closePopUp: () => void;
+  onServerCreated: () => void;
 }
 
 interface PopUpAddChannelProps {
@@ -351,6 +358,110 @@ export const PopUpFriendRequest = ({
   );
 };
 
+export const PopUpCreateServer = ({
+  closePopUp,
+  onServerCreated,
+}: PopUpCreateServerProps) => {
+  const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
+  const [serverName, setServerName] = useState<string>("");
+  const [iconS3Path, setIconS3Path] = useState<string>();
+
+  const handleClosePopUp = () => {
+    closePopUp();
+  };
+
+  const handleIconUploadSuccess = ({ key }: { key?: string }) => {
+    const path = key;
+    setIconS3Path(path);
+  };
+
+  const createServer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      console.error("No user authenticated");
+      return;
+    }
+    if (!serverName.trim() || !iconS3Path) {
+      console.error("Server name and Icon are required");
+      return;
+    }
+
+    try {
+      // Create the server
+      const { data: theServer, errors: errorCreateServerError } =
+        await client.models.Server.create({
+          name: serverName.trim(),
+          ownerId: user.id,
+          icon: iconS3Path,
+        });
+
+      if (errorCreateServerError) {
+        console.error("Server creation errors: " + errorCreateServerError);
+        return;
+      }
+
+      if (theServer) {
+        // Automatically add the creator as a member
+        const { data, errors: errorAddUserToServer } =
+          await client.models.ServerMember.create({
+            userId: user.id,
+            serverId: theServer.id,
+            role: "CREATOR",
+          });
+        if (errorAddUserToServer) {
+          console.error("Membership creation errors:", errorAddUserToServer);
+        }
+        setServerName("");
+        closePopUp();
+        onServerCreated();
+      }
+    } catch (error) {
+      console.error("Error creating server:", error);
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-bold mb-4">Create a Server</h2>
+      <section className="mb-4">
+        <FileUploader
+          acceptedFileTypes={[".jpeg", ".jpg", ".png"]}
+          path="serverIcons/"
+          autoUpload={false}
+          maxFileCount={1}
+          isResumable
+          onUploadSuccess={handleIconUploadSuccess}
+        />
+      </section>
+      <form onSubmit={createServer}>
+        <input
+          type="text"
+          placeholder="Server Name"
+          className="input input-bordered w-full mb-4"
+          value={serverName}
+          onChange={(e) => setServerName(e.target.value)}
+        />
+        <div className="flex justify-end space-x-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleClosePopUp}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-secondary btn-sm"
+            disabled={loading || !serverName.trim()}
+          >
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 export const PopUpAddServerMember = ({
   closePopUp,
   serverId,
@@ -461,6 +572,7 @@ export const PopUpAddServerMember = ({
               username: friend.username,
               icon: icon,
             },
+            role: "MEMBER",
           };
           const newIcon: MemberIcon = {
             id: friend.id,
@@ -517,13 +629,16 @@ export const PopUpServerMemberActions = ({
   onDelete,
 }: PopUpServerMemberActionsProps) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     try {
+      setError(null);
       await deleteServerMember(member.id);
       onDelete();
-    } catch (error) {
-      console.error("Failed to delete member:", error);
+      closePopUp();
+    } catch (error: any) {
+      setError(error.message || "Failed to delete member");
     }
   };
 
@@ -548,6 +663,7 @@ export const PopUpServerMemberActions = ({
           <span className="font-bold">{member.user.username}</span>
         </div>
       </div>
+      {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex flex-col space-y-2">
         {confirmDelete ? (
           <div className="flex flex-col space-y-2">
@@ -571,6 +687,7 @@ export const PopUpServerMemberActions = ({
             <button
               className="btn btn-sm btn-error"
               onClick={() => setConfirmDelete(true)}
+              disabled={member.role === "CREATOR"} // Disable button for CREATOR
             >
               Remove Member
             </button>

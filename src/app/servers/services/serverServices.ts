@@ -87,6 +87,7 @@ export const getServerInfo = async (serverId: string) => {
                 username: serverMemberUserData.username,
                 icon: serverMemberUserData.icon,
               },
+              role: member.role,
             };
           }
 
@@ -130,19 +131,39 @@ export const downloadServerMemberIcons = async (serverId: string) => {
 
 export const deleteServerMember = async (memberId: string) => {
   try {
+    // Fetch the ServerMember to check their role
+    const { data: member, errors: fetchErrors } = await client.models.ServerMember.get({ id: memberId });
+    
+    if (fetchErrors) {
+      throw new Error("Failed to fetch server member: " + fetchErrors);
+    }
+    
+    if (!member) {
+      throw new Error("Server member not found");
+    }
+    
+    // Prevent deletion if the role is CREATOR
+    if (member.role === "CREATOR") {
+      throw new Error("Cannot delete server member with CREATOR role");
+    }
+    
+    // Proceed with deletion otherwise
     const { data, errors } = await client.models.ServerMember.delete({
       id: memberId,
     });
+    
     if (errors) {
       throw new Error("Failed to delete server member: " + errors);
     }
+    
     if (!data) {
       throw new Error("Server member not found");
     }
+    
     console.log(`Successfully deleted server member: ${memberId}`);
-    return data;
+    return true; // Indicate success
   } catch (error) {
     console.error("Error deleting server member:", error);
-    throw error;
+    throw error; // Re-throw to let the caller handle it
   }
 };
