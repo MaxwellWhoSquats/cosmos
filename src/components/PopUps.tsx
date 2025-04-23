@@ -43,6 +43,7 @@ interface PopUpCreateServerProps {
 
 interface PopUpAddChannelProps {
   serverId: string;
+  channelType: "TEXT" | "VOICE";
   closePopUp: () => void;
   onAdd: (newChannel: Channel) => void;
 }
@@ -410,6 +411,44 @@ export const PopUpCreateServer = ({
         if (errorAddUserToServer) {
           console.error("Membership creation errors:", errorAddUserToServer);
         }
+
+        // Create default channels for the server
+        try {
+          // Create default text channel
+          const { data: defaultTextChannel, errors: errorDefaultText } =
+            await client.models.Channel.create({
+              name: "General",
+              type: "TEXT",
+              serverId: theServer.id,
+            });
+
+          // Create default voice channel
+          const { data: defaultVoiceChannel, errors: errorDefaultVoice } =
+            await client.models.Channel.create({
+              name: "General",
+              type: "VOICE",
+              serverId: theServer.id,
+            });
+
+          if (errorDefaultText) {
+            console.error(
+              "Error creating default text channel:",
+              errorDefaultText
+            );
+            return;
+          }
+
+          if (errorDefaultVoice) {
+            console.error(
+              "Error creating default voice channel:",
+              errorDefaultVoice
+            );
+            return;
+          }
+        } catch (error) {
+          console.error("Unknown Error: " + error);
+        }
+
         setServerName("");
         closePopUp();
         onServerCreated();
@@ -703,12 +742,12 @@ export const PopUpServerMemberActions = ({
 
 export const PopUpAddChannel = ({
   serverId,
+  channelType,
   closePopUp,
   onAdd,
 }: PopUpAddChannelProps) => {
   const { dbUser: user, loading } = useAmplifyAuthenticatedUser();
   const [channelName, setChannelName] = useState("");
-  const [channelType, setChannelType] = useState<"TEXT" | "VOICE">("TEXT");
   const [error, setError] = useState("");
 
   const handleClosePopUp = () => {
@@ -749,11 +788,10 @@ export const PopUpAddChannel = ({
           id: newChannel.id,
           serverId,
           name: newChannel.name,
-          type: newChannel.type as "TEXT" | "VOICE",
+          type: channelType,
         };
         onAdd(channel);
         setChannelName("");
-        setChannelType("TEXT");
         closePopUp();
       }
     } catch (error) {
@@ -773,14 +811,6 @@ export const PopUpAddChannel = ({
           value={channelName}
           onChange={(e) => setChannelName(e.target.value)}
         />
-        <select
-          className="select select-bordered w-full mb-4"
-          value={channelType}
-          onChange={(e) => setChannelType(e.target.value as "TEXT" | "VOICE")}
-        >
-          <option value="TEXT">Text Channel</option>
-          <option value="VOICE">Voice Channel</option>
-        </select>
         {error && <p className="font-bold text-red-500 mb-4">{error}</p>}
         <div className="flex justify-end space-x-2">
           <button
