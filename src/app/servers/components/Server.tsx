@@ -13,6 +13,7 @@ import SettingsIcon from "@/src/components/Icons/SettingsIcon";
 import PlusIcon from "@/src/components/Icons/PlusIcon";
 import CrownIcon from "@/src/components/Icons/CrownIcon";
 import { getUserIcon } from "@/src/utils/getUserIcon";
+import TextChannel from "./TextChannel";
 
 const VideoCallingClient = dynamic(() => import("./VideoCallingClient"), {
   ssr: false,
@@ -27,6 +28,9 @@ const Server = ({ serverId }: ServerProps) => {
   const [serverName, setServerName] = useState<string | null>(null);
   const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [userDataMap, setUserDataMap] = useState<
+    Record<string, RelevantUserData>
+  >({});
   const [userIcon, setUserIcon] = useState<string | null>(null);
   const [showAddServerMemberPopUp, setShowAddServerMemberPopUp] =
     useState(false);
@@ -40,6 +44,10 @@ const Server = ({ serverId }: ServerProps) => {
   const [selectedVoiceChannel, setSelectedVoiceChannel] = useState<
     string | null
   >(null);
+  const [selectedTextChannel, setSelectedTextChannel] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isServerLoading, setIsServerLoading] = useState(true);
   const serverContentRef = useRef<HTMLDivElement | null>(null);
   const addServerMemberPopUpRef = useRef<HTMLDivElement | null>(null);
@@ -48,20 +56,16 @@ const Server = ({ serverId }: ServerProps) => {
 
   useEffect(() => {
     let isMounted = true;
+    setIsServerLoading(true);
+
+    setSelectedTextChannel(null);
+    setSelectedVoiceChannel(null);
 
     const fetchServerInfo = async () => {
-      setServerName(null);
-      setServerMembers([]);
-      setChannels([]);
-      setUserIcon(null);
-      setSelectedVoiceChannel(null);
-      setIsServerLoading(true);
-
       if (!serverId || !user) {
-        setIsServerLoading(false);
+        if (isMounted) setIsServerLoading(false);
         return;
       }
-
       try {
         const { serverName, serverMembers, serverChannels } =
           await getServerInfo(serverId);
@@ -69,6 +73,14 @@ const Server = ({ serverId }: ServerProps) => {
           setServerName(serverName);
           setServerMembers(serverMembers);
           setChannels(serverChannels);
+          const map: Record<string, RelevantUserData> = {};
+          serverMembers.forEach((member) => {
+            map[member.user.id] = {
+              username: member.user.username,
+              icon: member.user.icon,
+            };
+          });
+          setUserDataMap(map);
           if (user?.icon) {
             getUserIcon(user.icon).then((iconUrl) => {
               if (isMounted) setUserIcon(iconUrl);
@@ -77,13 +89,13 @@ const Server = ({ serverId }: ServerProps) => {
           setIsServerLoading(false);
         }
       } catch (error) {
-        console.error("Error fetching server info:", error);
-        setIsServerLoading(false);
+        console.error(error);
+        if (isMounted) {
+          setIsServerLoading(false);
+        }
       }
     };
-
     fetchServerInfo();
-
     return () => {
       isMounted = false;
     };
@@ -169,6 +181,15 @@ const Server = ({ serverId }: ServerProps) => {
 
   const handleAddServerMember = (newMember: ServerMember) => {
     setServerMembers((prev) => [...prev, newMember]);
+
+    // Update userDataMap with new member
+    setUserDataMap((prev) => ({
+      ...prev,
+      [newMember.id]: {
+        username: newMember.user.username,
+        icon: newMember.user.icon,
+      },
+    }));
     closeAddServerMemberPopUp();
   };
 
@@ -184,6 +205,12 @@ const Server = ({ serverId }: ServerProps) => {
 
   const handleJoinVoiceChannel = (channelName: string) => {
     setSelectedVoiceChannel(channelName);
+    setSelectedTextChannel(null);
+  };
+
+  const handleJoinTextChannel = (channelId: string, channelName: string) => {
+    setSelectedTextChannel({ id: channelId, name: channelName });
+    setSelectedVoiceChannel(null);
   };
 
   return (
@@ -195,12 +222,12 @@ const Server = ({ serverId }: ServerProps) => {
       {/* Left Sidebar */}
       <aside className="flex-[1] flex flex-col bg-base-300">
         <div className="flex-1 px-6 flex justify-between items-center border-b border-gray-700 bg-midnight">
-          <h2 className="text-xl font-bold text-white">{`// ${serverName}`}</h2>
+          <h2 className="text-xl font-bold text-white">{`// ${serverName ?? "Loading..."}`}</h2>
           <div className="cursor-pointer hover:scale-125 transition duration-100">
             <SettingsIcon />
           </div>
         </div>
-        <div className="flex-7 p-6 space-y-4">
+        <div className="flex-7 p-6 space-y-4 overflow-y-auto">
           <section>
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xs font-semibold text-gray-400 uppercase">
@@ -219,7 +246,10 @@ const Server = ({ serverId }: ServerProps) => {
                 .map((channel) => (
                   <li
                     key={channel.id}
-                    className="hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1"
+                    className={`hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1 ${selectedTextChannel?.id === channel.id ? "bg-gray-800 font-semibold" : ""}`}
+                    onClick={() =>
+                      handleJoinTextChannel(channel.id, channel.name)
+                    }
                   >
                     # {channel.name}
                   </li>
@@ -244,9 +274,7 @@ const Server = ({ serverId }: ServerProps) => {
                 .map((channel) => (
                   <li
                     key={channel.id}
-                    className={`hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1 ${
-                      selectedVoiceChannel === channel.name ? "bg-gray-800" : ""
-                    }`}
+                    className={`hover:bg-gray-800 rounded cursor-pointer text-gray-300 p-1 ${selectedVoiceChannel === channel.name ? "bg-gray-800 font-semibold" : ""}`}
                     onClick={() => handleJoinVoiceChannel(channel.name)}
                   >
                     🔊 {channel.name}
@@ -274,17 +302,22 @@ const Server = ({ serverId }: ServerProps) => {
       </aside>
       {/* Main Content */}
       <main className="flex-[3] bg-midnight border-l border-r border-gray-700 relative">
-        {!isServerLoading && serverName ? (
-          selectedVoiceChannel ? (
-            <VideoCallingClient initialChannel={selectedVoiceChannel} />
-          ) : (
-            <div className="w-full h-full flex justify-center items-center">
-              Select a channel to connect
-            </div>
-          )
-        ) : (
+        {isServerLoading ? (
           <div className="w-full h-full flex justify-center items-center">
             <span className="loading loading-spinner loading-lg text-info"></span>
+          </div>
+        ) : selectedVoiceChannel ? (
+          <VideoCallingClient initialChannel={selectedVoiceChannel} />
+        ) : selectedTextChannel ? (
+          <TextChannel
+            key={selectedTextChannel.id}
+            channelId={selectedTextChannel.id}
+            channelName={selectedTextChannel.name}
+            userDataMap={userDataMap}
+          />
+        ) : (
+          <div className="w-full h-full flex justify-center items-center">
+            Select a channel to connect
           </div>
         )}
       </main>
@@ -299,7 +332,7 @@ const Server = ({ serverId }: ServerProps) => {
             +
           </button>
         </div>
-        <div className="flex-1 p-6 space-y-4">
+        <div className="flex-1 p-6 space-y-4 overflow-y-auto">
           <section>
             <h4 className="mb-2 text-xs font-semibold text-gray-400 uppercase">
               Members
@@ -309,7 +342,7 @@ const Server = ({ serverId }: ServerProps) => {
                 serverMembers.map((member) => (
                   <li
                     key={member.id}
-                    className="flex items-center space-x-2 p-1 text-gray-300 cursor-pointer hover:scale-105 hover:outline outline-purple-300 rounded-xl"
+                    className="flex items-center space-x-2 p-1 text-gray-300 cursor-pointer hover:scale-105 hover:outline outline-purple-300 rounded-xl transition-transform duration-100"
                     onClick={() => setSelectedMember(member)}
                   >
                     <div className="w-6 h-6 rounded-full overflow-hidden">

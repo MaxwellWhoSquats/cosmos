@@ -8,7 +8,12 @@ interface ServerMember {
   };
   role: "CREATOR" | "ADMIN" | "MEMBER";
 }
-  
+
+interface RelevantUserData {
+  username: string;
+  icon?: string | null;
+}
+
 interface Channel {
   id: string;
   serverId: string;
@@ -16,21 +21,9 @@ interface Channel {
   type: "TEXT" | "VOICE";
 }
 
-interface Message {
-  id: string;
-  content: string;
-  userId: string;
-  channelId: string;
-}
-
 interface Media {
   id: string;
   content: string;
   userId: string;
   channelId: string;
-}
-
-interface MemberIcon {
-  id: string;
-  icon: string | null;
 }
