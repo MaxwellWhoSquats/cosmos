@@ -5,6 +5,7 @@ export const getServerInfo = async (serverId: string) => {
   let serverName = "";
   let serverMembers: ServerMember[] = [];
   let serverChannels: Channel[] = [];
+  let userDataMap: Record<string, RelevantUserData> = {};
 
   try {
     // Fetch the server info by ID
@@ -25,7 +26,7 @@ export const getServerInfo = async (serverId: string) => {
       });
 
       if (errorGetServerChannels) {
-        console.error("Errors fetching server channels:" + errorGetServerChannels)
+        console.error("Errors fetching server channels:", errorGetServerChannels);
       }
 
       if (theServerChannels) {
@@ -56,7 +57,6 @@ export const getServerInfo = async (serverId: string) => {
         serverChannels = resolvedChannels.filter((channel): channel is Channel => channel !== null);
       }
 
-
       // Fetch all the members listed on the Server
       const { data: theServerMembers, errors: errorGetServerMembers } = await client.models.ServerMember.list({
         filter: { serverId: { eq: serverId } },
@@ -82,13 +82,18 @@ export const getServerInfo = async (serverId: string) => {
             let theIcon = null;
             if (serverMemberUserData.icon) {
               try {
-                const { body } = await downloadData({ path: serverMemberUserData.icon})
-                  .result;
+                const { body } = await downloadData({ path: serverMemberUserData.icon }).result;
                 theIcon = URL.createObjectURL(await body.blob());
               } catch (error) {
                 console.error("Failed to download icon:", error);
               }
             }
+
+            // Add to userDataMap
+            userDataMap[serverMemberUserData.id!] = {
+              username: serverMemberUserData.username!,
+              icon: theIcon,
+            };
 
             return {
               id: member.id,
@@ -110,10 +115,10 @@ export const getServerInfo = async (serverId: string) => {
       }
     }
   } catch (error) {
-    console.error("Unknown Error" + error);
+    console.error("Unknown Error:", error);
   }
 
-  return { serverName, serverMembers, serverChannels };
+  return { serverName, serverMembers, serverChannels, userDataMap };
 };
 
 export const deleteServerMember = async (memberId: string) => {

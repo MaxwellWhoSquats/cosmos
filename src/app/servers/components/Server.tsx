@@ -67,20 +67,13 @@ const Server = ({ serverId }: ServerProps) => {
         return;
       }
       try {
-        const { serverName, serverMembers, serverChannels } =
+        const { serverName, serverMembers, serverChannels, userDataMap } =
           await getServerInfo(serverId);
         if (isMounted) {
           setServerName(serverName);
           setServerMembers(serverMembers);
           setChannels(serverChannels);
-          const map: Record<string, RelevantUserData> = {};
-          serverMembers.forEach((member) => {
-            map[member.user.id] = {
-              username: member.user.username,
-              icon: member.user.icon,
-            };
-          });
-          setUserDataMap(map);
+          setUserDataMap(userDataMap);
           if (user?.icon) {
             getUserIcon(user.icon).then((iconUrl) => {
               if (isMounted) setUserIcon(iconUrl);
@@ -185,7 +178,7 @@ const Server = ({ serverId }: ServerProps) => {
     // Update userDataMap with new member
     setUserDataMap((prev) => ({
       ...prev,
-      [newMember.id]: {
+      [newMember.user.id]: {
         username: newMember.user.username,
         icon: newMember.user.icon,
       },
