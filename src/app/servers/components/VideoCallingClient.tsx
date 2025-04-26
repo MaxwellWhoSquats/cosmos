@@ -9,6 +9,7 @@ import {
   usePublish,
   useRemoteUsers,
   AgoraRTCProvider,
+  IAgoraRTCClient,
 } from "agora-rtc-react";
 import AgoraRTC from "agora-rtc-react";
 import { useState, useEffect } from "react";
@@ -34,8 +35,8 @@ const VideoCall = ({
   uid,
   onDisconnect,
 }: VideoCallProps) => {
-  const [micOn, setMic] = useState(false);
-  const [cameraOn, setCamera] = useState(false);
+  const [micOn, setMic] = useState(true);
+  const [cameraOn, setCamera] = useState(true);
   const { localMicrophoneTrack } = useLocalMicrophoneTrack(micOn);
   const { localCameraTrack } = useLocalCameraTrack(cameraOn);
   const isConnected = useIsConnected();
@@ -44,12 +45,19 @@ const VideoCall = ({
   useJoin({ appid: appId, channel, token, uid }, true);
   usePublish([localMicrophoneTrack, localCameraTrack]);
 
+  // Close tracks if the component unmounts unexpectedly
   useEffect(() => {
     return () => {
       localMicrophoneTrack?.close();
       localCameraTrack?.close();
     };
   }, [localMicrophoneTrack, localCameraTrack]);
+
+  const handleEndCall = () => {
+    localMicrophoneTrack?.close();
+    localCameraTrack?.close();
+    onDisconnect();
+  };
 
   return (
     <div className="h-full p-4">
@@ -78,22 +86,33 @@ const VideoCall = ({
               </LocalUser>
             </div>
 
-            {remoteUsers.map((user) => (
-              <div
-                key={user.uid}
-                className="relative w-64 h-36 bg-base-300 rounded overflow-hidden"
-              >
-                <RemoteUser user={user} className="w-full h-full object-cover">
-                  <div className="absolute bottom-1 left-1 p-1 rounded flex space-x-1 items-center">
-                    <span className="text-xs text-white bg-base-200 bg-opacity-50 rounded px-2 py-0.5">
-                      {user.uid}
-                    </span>
-                  </div>
-                </RemoteUser>
-              </div>
-            ))}
+            {remoteUsers.map((user) => {
+              return (
+                <div
+                  key={user.uid}
+                  className="relative w-64 h-36 bg-base-300 rounded overflow-hidden"
+                >
+                  <RemoteUser
+                    user={user}
+                    playAudio={true}
+                    playVideo={true}
+                    className="w-full h-full object-cover"
+                  >
+                    <div className="absolute bottom-1 left-1 p-1 rounded flex space-x-1 items-center">
+                      <span className="text-xs text-white bg-base-200 bg-opacity-50 rounded px-2 py-0.5">
+                        {user.uid}
+                      </span>
+                      {!user.hasAudio && (
+                        <div className="flex items-center justify-center h-5 w-5 rounded-full p-0.5 bg-base-200">
+                          <MicrophoneIcon size="SMALL" color="RED" />
+                        </div>
+                      )}
+                    </div>
+                  </RemoteUser>
+                </div>
+              );
+            })}
           </div>
-
           <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-1 items-center">
             <button
               className="p-3 bg-base-300 rounded-full hover:opacity-70"
@@ -116,15 +135,15 @@ const VideoCall = ({
               )}
             </button>
             <button
-              className="ml-2 py-2 px-4 bg-error-content rounded-xl hover:opacity-70"
-              onClick={onDisconnect}
+              className="ml-2 py-2 px-4 bg-red-600 text-white rounded-xl hover:opacity-70"
+              onClick={handleEndCall}
             >
-              <p className="font-bold text-white">End Call</p>
+              <p className="font-bold">End Call</p>
             </button>
           </div>
         </>
       ) : (
-        <div className="text-xl">Connecting...</div>
+        <div className="text-xl text-white">Connecting...</div>
       )}
     </div>
   );
@@ -136,7 +155,7 @@ interface VideoCallingClientProps {
 
 const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
   const { dbUser: user } = useAmplifyAuthenticatedUser();
-  const [agoraClient, setAgoraClient] = useState<any>(null);
+  const [agoraClient, setAgoraClient] = useState<IAgoraRTCClient | null>(null);
   const [calling, setCalling] = useState(false);
   const [tokenData, setTokenData] = useState<{
     appId: string;
@@ -146,10 +165,11 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Create the client only when needed and not already created
   useEffect(() => {
     if (calling && !agoraClient) {
-      const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-      setAgoraClient(agoraClient);
+      const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      setAgoraClient(client);
     }
   }, [calling, agoraClient]);
 
@@ -160,12 +180,13 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
     }
 
     if (!channelName) {
-      setError(" Invalid channel name.");
+      setError("Invalid channel name.");
       return;
     }
 
     try {
       setError(null);
+      setCalling(true);
       const uid = user?.id;
 
       // Call the Lambda function to generate a token neccessary for a user to join the video call,
@@ -181,7 +202,7 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
       }
 
       if (!data) {
-        throw new Error("No token returned from videoCall query");
+        throw new Error("No data returned from videoCall query");
       }
 
       const parsed = JSON.parse(data);
@@ -189,18 +210,19 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
         throw new Error("Invalid token data: missing token or appId");
       }
 
-      // Set local data using Lambda-generated token to connect to Agora
       setTokenData({
         token: parsed.token,
         appId: parsed.appId,
         channelName,
         uid,
       });
-      setCalling(true);
+      console.log("Token fetched successfully, ready to join.");
     } catch (error) {
+      console.error("Failed to fetch token or join channel:", error);
       setError(
         `Failed to join channel: ${error instanceof Error ? error.message : "Unknown error"}`
       );
+      setCalling(false);
     }
   };
 
@@ -212,10 +234,15 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
     fetchToken(initialChannel);
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     if (agoraClient) {
-      agoraClient.leave().catch(console.error);
-      agoraClient.removeAllListeners();
+      try {
+        await agoraClient.leave();
+        // Remove listeners after leaving successfully
+        agoraClient.removeAllListeners();
+      } catch (error) {
+        console.error("Error leaving Agora channel:", error);
+      }
     }
     setCalling(false);
     setAgoraClient(null);
@@ -224,24 +251,28 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
   };
 
   return (
-    <div className="h-full flex justify-center items-center">
+    <div className="h-full flex flex-col justify-center items-center text-white">
+      {" "}
       {error && (
-        <div className="p-4 bg-error-content text-white rounded mb-4">
-          {error}
+        <div className="p-4 bg-red-700 text-white rounded mb-4 max-w-md text-center">
+          {" "}
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
         </div>
       )}
       {!calling ? (
         <main className="flex flex-col items-center">
+          <div className="mb-4 text-lg">Join Channel:</div>
           <div
             id="channelName"
-            className="px-5 py-2 font-bold border border-gray-300 rounded text-center"
+            className="px-5 py-2 font-bold border border-gray-300 rounded text-center bg-gray-700 mb-4"
           >
-            {initialChannel}
+            {initialChannel || "No Channel Specified"}
           </div>
           <button
-            className="btn btn-soft btn-primary mt-4"
+            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleJoinChannel}
-            disabled={!initialChannel}
+            disabled={!initialChannel || calling}
           >
             Join Channel
           </button>
@@ -257,7 +288,7 @@ const VideoCallingClient = ({ initialChannel }: VideoCallingClientProps) => {
           />
         </AgoraRTCProvider>
       ) : (
-        <div className="text-lg text-white">Initializing...</div>
+        <div className="text-lg text-gray-400">Initializing Call...</div>
       )}
     </div>
   );
